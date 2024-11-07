@@ -1,0 +1,75 @@
+/* Slide down for Home */
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.slide-down {
+    animation: slideDown 1s ease-out forwards;
+}
+
+/* Slide right for Features */
+@keyframes slideRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.slide-right {
+    animation: slideRight 1s ease-out forwards;
+}
+
+/* Slide up for Sample */
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.slide-up {
+    animation: slideUp 1s ease-out forwards;
+}
+
+/* Slide left for Contact */
+@keyframes slideLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.slide-left {
+    animation: slideLeft 1s ease-out forwards;
+}
+
+/* Common styling for all animated sections */
+section {
+    min-height: 100vh;
+    padding: 50px 5%;
+    opacity: 0; /* Initially hide the sections */
+}
+
+/* Add padding so the content stays visible below a fixed header */
+section {
+    padding-top: 120px;
+}

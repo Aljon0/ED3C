@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';  // Adjust the path as needed
+import { db } from '../firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import UserHeader from '../components/UserHeader.jsx';
 
@@ -16,60 +16,51 @@ function UserProfile() {
     address: '',
   });
   
-  const [imageFile, setImageFile] = useState(null); // To handle uploaded images
+  const [imageFile, setImageFile] = useState(null);
   const [userID, setUserID] = useState(null);
   const navigate = useNavigate();
 
-  // Use onAuthStateChanged to handle auth state
+  // Combined auth and data fetching in one useEffect
   useEffect(() => {
     const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+    
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        setUserID(authUser.uid); // Set the user's ID if logged in
-        if (authUser.displayName) {
-          const [firstName, ...surnameArray] = authUser.displayName.split(' '); // Split displayName into firstName and surname
-          const surname = surnameArray.join(' ');
-          setUser((prevUser) => ({
-            ...prevUser,
-            firstName: firstName || '',
-            surname: surname || '',
-            imageUrl: authUser.photoURL || 'https://via.placeholder.com/80',
-            email: authUser.email || '',
-          }));
+        // User is signed in
+        setUserID(authUser.uid);
+        
+        try {
+          // Fetch user data from Firestore using the authenticated user's ID
+          const userDoc = await getDoc(doc(db, 'Users', authUser.uid));
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUser({
+              firstName: userData.firstName || '',
+              surname: userData.surname || '',
+              imageUrl: userData.imageUrl || 'https://via.placeholder.com/80',
+              email: userData.email || '',
+              contact: userData.contact || '',
+              address: userData.address || '',
+            });
+          } else {
+            console.error("No user document found!");
+            navigate('/login');
+          }
+        } catch (error) {
+          console.error("Error fetching user data: ", error);
+          navigate('/login');
         }
       } else {
-        setUserID(null); // Clear if no user
+        // No user is signed in
+        setUserID(null);
+        navigate('/login');
       }
     });
+
+    // Cleanup subscription
     return () => unsubscribe();
-  }, []);
-
-  // Fetch user data from Firestore for registered users
-  useEffect(() => {
-    if (!userID) return;
-
-    const fetchUserData = async () => {
-      try {
-        const userDoc = await getDoc(doc(db, 'Users', userID)); // Adjust your collection name
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUser((prevUser) => ({
-            ...prevUser,
-            firstName: userData.firstName || '',
-            surname: userData.surname || '',
-            imageUrl: userData.imageUrl || prevUser.imageUrl,
-            email: userData.email || '',
-            contact: userData.contact || '',
-            address: userData.address || '',
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching user data: ", error);
-      }
-    };
-
-    fetchUserData();
-  }, [userID]);
+  }, [navigate]);
 
   // Handle image file input change
   const handleImageChange = (e) => {
@@ -79,7 +70,7 @@ function UserProfile() {
       reader.onload = (event) => {
         setUser((prevUser) => ({
           ...prevUser,
-          imageUrl: event.target.result, // Update UI to show the uploaded image immediately
+          imageUrl: event.target.result,
         }));
       };
       reader.readAsDataURL(e.target.files[0]);
@@ -88,52 +79,48 @@ function UserProfile() {
 
   // Upload image to Firebase Storage
   const uploadImageToStorage = async (imageFile) => {
-    const storage = getStorage(); // Get a reference to the storage service
-    const storageRef = ref(storage, `users/${userID}/profile.jpg`); // Define the storage path
-
-    // Upload the image file
+    const storage = getStorage();
+    const storageRef = ref(storage, `users/${userID}/profile.jpg`);
+    
     await uploadBytes(storageRef, imageFile);
-
-    // Get the download URL
     const imageUrl = await getDownloadURL(storageRef);
     return imageUrl;
   };
 
   // Handle Save button click
   const handleSave = async () => {
-    if (!userID) return;
-
-    const updatedData = {
-      firstName: user.firstName || '',
-      surname: user.surname || '',
-      email: user.email || '',
-      contact: user.contact || '',
-      address: user.address || '',
-    };
-
-    // Upload the image and get the download URL
-    if (imageFile) {
-      try {
-        const imageUrl = await uploadImageToStorage(imageFile);
-        updatedData.imageUrl = imageUrl;  // Add the image URL to Firestore
-      } catch (error) {
-        console.error("Error uploading image: ", error);
-        return;
-      }
+    if (!userID) {
+      console.error("No user ID found");
+      return;
     }
 
-    // Update Firestore with the new data
     try {
+      const updatedData = {
+        firstName: user.firstName,
+        surname: user.surname,
+        email: user.email,
+        contact: user.contact,
+        address: user.address,
+      };
+
+      // If there's a new image, upload it
+      if (imageFile) {
+        const imageUrl = await uploadImageToStorage(imageFile);
+        updatedData.imageUrl = imageUrl;
+      }
+
+      // Update Firestore
       await updateDoc(doc(db, 'Users', userID), updatedData);
-      console.log('Profile updated successfully!');
+      alert('Profile updated successfully!');
     } catch (error) {
       console.error("Error updating profile: ", error);
+      alert('Failed to update profile. Please try again.');
     }
   };
 
-  // Function to navigate back to the previous page
+  // Function to navigate back
   const handleGoBack = () => {
-    navigate(-1);  // This will take the user back to the last page they visited
+    navigate(-1);
   };
 
   return (

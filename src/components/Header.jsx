@@ -23,9 +23,9 @@ function Header() {
   };
 
   return (
-    <header className="text-[#2F424B] fixed w-full flex items-center justify-between px-[5%] py-6 bg-inherit z-auto">
+    <header className="text-white fixed w-full flex items-center justify-between px-[5%] py-3 bg-[#2F424B] z-[100]">
       <div className="flex items-center">
-        <img src="/assets/logo.png" className="h-16 mr-2" alt="Logo" />
+        <img src="/assets/logo2.png" className="h-16 mr-2" alt="Logo" />
         <Link to="/" className="text-4xl font-bold italic">DOUBLE SEVEN</Link>
       </div>
       <nav className="relative">
@@ -34,7 +34,7 @@ function Header() {
           <Link
             to="/"
             state={{ scrollTo: 'home' }}
-            className={`nav-link text-lg px-4 py-2 relative ${activeLink === 'home' ? 'active' : ''}`}
+            className={`nav-link text-base py-2 relative ${activeLink === 'home' ? 'active' : ''}`}
             onClick={() => handleLinkClick('home')}
           >
             Home
@@ -42,7 +42,7 @@ function Header() {
           <Link
             to="/"
             state={{ scrollTo: 'features' }}
-            className={`nav-link text-lg px-4 py-2 relative ${activeLink === 'features' ? 'active' : ''}`}
+            className={`nav-link text-base py-2 relative ${activeLink === 'features' ? 'active' : ''}`}
             onClick={() => handleLinkClick('features')}
           >
             Features
@@ -50,7 +50,7 @@ function Header() {
           <Link
             to="/"
             state={{ scrollTo: 'sample' }}
-            className={`nav-link text-lg px-4 py-2 relative ${activeLink === 'sample' ? 'active' : ''}`}
+            className={`nav-link text-base py-2 relative ${activeLink === 'sample' ? 'active' : ''}`}
             onClick={() => handleLinkClick('sample')}
           >
             Sample
@@ -58,14 +58,14 @@ function Header() {
           <Link
             to="/"
             state={{ scrollTo: 'contact' }}
-            className={`nav-link text-lg px-4 py-2 relative ${activeLink === 'contact' ? 'active' : ''}`}
+            className={`nav-link text-base py-2 relative ${activeLink === 'contact' ? 'active' : ''}`}
             onClick={() => handleLinkClick('contact')}
           >
             Contact
           </Link>
           <Link
             to="/login"
-            className={`nav-link text-lg px-4 py-2 relative ${activeLink === 'login' ? 'active' : ''}`}
+            className={`nav-link text-base py-2 relative ${activeLink === 'login' ? 'active' : ''}`}
             onClick={() => handleLinkClick('login')}
           >
             Login

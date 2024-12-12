@@ -239,10 +239,10 @@ function Message() {
             <UserSideBar />
             <main className="ml-64 p-8 mt-16">
                 <div className="flex">
-                    <div className="w-full h-[590px] bg-[#FAFAFA]">
+                    <div className="w-full h-[500px] bg-[#DADADA]">
                     {currentUser ? (
                         <>
-                        <div className="w-full flex items-center justify-between p-4 bg-[#2F424B] text-white rounded-t-lg">
+                        <div className="w-full flex items-center justify-between p-4 bg-[#2F424B] text-white rounded">
                             <div className="flex items-center">
                             <img
                                 src="/assets/mingcute--user-4-line.svg"
@@ -261,16 +261,16 @@ function Message() {
                             </div>
                         </div>
 
-                        <div className="w-full h-[400px] p-4 space-y-4 overflow-y-auto bg-white rounded-b-lg">
+                        <div className="w-full h-[300px] p-4 space-y-4 overflow-y-auto bg-[#DADADA] rounded">
                             {messages.map((msg, idx) => (
                             <div
                                 key={idx}
                                 className={`flex ${msg.senderType === "customer" ? "justify-end" : ""}`}
                             >
                                 <div
-                                className={`p-3 rounded-lg max-w-xs ${
+                                className={`p-3 rounded-md max-w-xs ${
                                     msg.senderType === "owner"
-                                    ? "bg-[#E1E1E1] text-black"
+                                    ? "bg-white text-black"
                                     : "bg-[#37474F] text-white"
                                 }`}
                                 >
@@ -289,7 +289,7 @@ function Message() {
                             ))}
                         </div>
 
-                        <div className="flex items-center p-4 bg-white rounded-lg shadow-md">
+                        <div className="flex items-center p-4 bg-[#DADADA] shadow-md rounded mt-10">
                             <img
                                 src="/assets/uil--image-plus.svg"
                                 className="w-[40px] h-[40px] mr-2 cursor-pointer"
@@ -308,7 +308,7 @@ function Message() {
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage(e)}
-                                className="w-full bg-[#E1E1E1] rounded-lg p-3"
+                                className="w-full bg-white rounded-lg p-3"
                             />
                             <img
                                 src="/assets/wpf--sent.svg"

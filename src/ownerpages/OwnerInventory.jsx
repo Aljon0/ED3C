@@ -3,103 +3,50 @@ import OwnerHeader from "../components/OwnerHeader.jsx";
 import OwnerSideBar from "../components/OwnerSideBar.jsx";
 
 function OwnerInventory() {
-    // Initialize data from localStorage or default data if none exists
-    const [inventoryData, setInventoryData] = useState(() => {
-        const savedData = localStorage.getItem("inventoryData");
-        return savedData
-            ? JSON.parse(savedData)
-            : [
-                  { type: "Gravestone", materials: ["Marble", "Ceramic Tile", "Granite"], quantities: [0, 0, 0], isEditing: false },
-                  { type: "Gravestone Base", materials: ["Marble", "Ceramic Tile", "Granite"], quantities: [0, 0, 0], isEditing: false },
-                  { type: "Urns", materials: ["Bamboo", "Ceramic Tile"], quantities: [0, 0], isEditing: false },
-                  { type: "Table Signs", materials: ["Bamboo", "Ceramic Tile"], quantities: [0, 0], isEditing: false }
-              ];
-    });
-
-    // Save the updated inventory data to localStorage whenever it changes
-    useEffect(() => {
-        localStorage.setItem("inventoryData", JSON.stringify(inventoryData));
-    }, [inventoryData]);
-
-    // Handle edit and save toggling
-    const toggleEdit = (index) => {
-        setInventoryData((prevData) =>
-            prevData.map((item, i) =>
-                i === index ? { ...item, isEditing: !item.isEditing } : item
-            )
-        );
-    };
-
-    // Handle input changes
-    const handleInputChange = (index, materialIndex, value) => {
-        setInventoryData((prevData) =>
-            prevData.map((item, i) => {
-                if (i === index) {
-                    const updatedQuantities = [...item.quantities];
-                    updatedQuantities[materialIndex] = parseInt(value) || 0; // Ensure value is a number
-                    return { ...item, quantities: updatedQuantities };
-                }
-                return item;
-            })
-        );
-    };
-
-    return (
-        <>
-            <OwnerHeader />
-            <OwnerSideBar />
-            <main className="ml-64 p-8 mt-16">
-                <span className="font-bold text-[#37474F] text-7xl">MATERIALS INVENTORY</span>
-
-                {inventoryData.map((item, index) => (
-                    <div key={index} className="w-[930px] h-[200px] bg-[#FAFAFA] rounded-md mt-2">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-100">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-2xl font-medium text-[#333333] uppercase tracking-wider text-center">{item.type}</th>
-                                        {item.materials.map((material, i) => (
-                                            <th key={i} className="px-6 py-3 text-left text-2xl font-medium text-[#333333] uppercase tracking-wider text-center">{material}</th>
-                                        ))}
-                                        <th className="px-6 py-3 text-left text-2xl font-medium text-[#333333] uppercase tracking-wider text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#333333] text-center">Quantity</td>
-                                        {item.quantities.map((quantity, materialIndex) => (
-                                            <td key={materialIndex} className="px-6 py-4 whitespace-nowrap text-sm text-[#333333] text-center">
-                                                {item.isEditing ? (
-                                                    <input
-                                                        type="number"
-                                                        value={quantity}
-                                                        onChange={(e) =>
-                                                            handleInputChange(index, materialIndex, e.target.value)
-                                                        }
-                                                        className="w-16 p-1 text-center text-black rounded"
-                                                    />
-                                                ) : (
-                                                    quantity
-                                                )}
-                                            </td>
-                                        ))}
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#333333] text-center">
-                                            <button
-                                                onClick={() => toggleEdit(index)}
-                                                className="px-4 py-2 bg-[#37474F] text-white rounded-md hover:bg-[#576c75]"
-                                            >
-                                                {item.isEditing ? "Save" : "Edit"}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                ))}
-            </main>
-        </>
-    );
+  return (
+    <>
+      <OwnerHeader />
+      <OwnerSideBar />
+      <main className="ml-64 p-8 mt-16">
+        <div className="bg-[#37474F] p-6 rounded-lg shadow-lg">
+          <h1 className="text-4xl font-bold text-white mb-6">MATERIALS INVENTORY</h1>
+          <div className="flex justify-between items-center mb-8">
+            <div className="w-60 h-8 bg-white rounded-md flex items-center px-2">
+              <img src="/assets/heroicons--magnifying-glass-16-solid.svg" alt="Search" className="mr-2 w-4 h-4" />
+              <input type="text" placeholder="Search Item Name" className="rounded-md w-full h-full focus:outline-none" />
+            </div>
+            <div className="flex items-center text-white">
+              <span className="mr-2">Add New Item</span>
+              <img src="/assets/typcn--plus-outline.svg" alt="Add" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="bg-[#263238] p-6 rounded-lg shadow-lg text-white">
+              <h2 className="text-2xl font-bold mb-4"></h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-lg font-medium mb-2">Stock</p>
+                  <p className="text-2xl font-bold"></p>
+                </div>
+                <div>
+                  <p className="text-lg font-medium mb-2">Stock Value</p>
+                  <p className="text-2xl font-bold"></p>
+                </div>
+                <div>
+                  <p className="text-lg font-medium mb-2">Drack Stock</p>
+                  <p className="text-2xl font-bold"></p>
+                </div>
+                <div>
+                  <p className="text-lg font-medium mb-2">Price</p>
+                  <p className="text-2xl font-bold"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
+  );
 }
 
 export default OwnerInventory;

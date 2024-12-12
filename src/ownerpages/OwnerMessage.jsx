@@ -249,7 +249,7 @@ return (
             <OwnerHeader />
             <OwnerSideBar />
             <main className="ml-64 p-8 mt-16 flex">
-                <div className="w-[300px] h-[660px] bg-[#2F424B] rounded-md p-4 overflow-y-auto">
+                <div className="w-[400px] h-[500px] bg-[#2F424B] rounded-md p-4 overflow-y-auto">
                         <input
                             type="text"
                             placeholder="Search users..."
@@ -279,7 +279,7 @@ return (
                                                 className="rounded-full w-16 h-16"
                                             />
                                             <div className="ml-4">
-                                                <h2 className="text-lg font-semibold text-white leading-3">
+                                                <h2 className="text-base font-semibold text-white leading-3">
                                                     {user.firstName} {user.surname}
                                                 </h2>
                                             </div>
@@ -291,7 +291,7 @@ return (
                         )}
                 </div>
 
-                    <div className="w-[650px] h-[660px] bg-[#FAFAFA] flex flex-col justify-between rounded-lg shadow-lg p-4 ml-4">
+                    <div className="w-[650px] h-[500px] bg-[#DADADA] flex flex-col justify-between rounded-lg shadow-lg ml-4">
                         {selectedUser ? (
                             <>
                                 <div className="w-full flex items-center justify-between p-4 bg-[#2F424B] text-white rounded-t-lg">
@@ -315,7 +315,7 @@ return (
                                     </div>
                                 </div>
 
-                                <div className="flex-grow overflow-y-auto mb-4 space-y-4 bg-white rounded-b-lg p-4">
+                                <div className="flex-grow overflow-y-auto mb-4 space-y-4 bg-[#DADADA] rounded-b-lg p-4">
                                     {messages.map((msg, idx) => (
                                         <div
                                             key={idx}
@@ -323,7 +323,7 @@ return (
                                         >
                                             <div
                                                 className={`p-3 rounded-lg max-w-xs ${
-                                                    msg.senderType === "owner" ? "bg-[#37474F] text-white" : "bg-[#E1E1E1] text-black"
+                                                    msg.senderType === "owner" ? "bg-[#37474F] text-white" : "bg-white text-black"
                                                 }`}
                                             >
                                                 {msg.imageUrl ? (
@@ -341,7 +341,7 @@ return (
                                     ))}
                                 </div>
 
-                                <div className="flex items-center p-4 bg-white rounded-lg shadow-md">
+                                <div className="flex items-center p-4 bg-[#DADADA] rounded-lg shadow-md">
                                     <img
                                         src="/assets/uil--image-plus.svg"
                                         className="w-[40px] h-[40px] mr-2 cursor-pointer"
@@ -360,7 +360,7 @@ return (
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage(e)}
-                                        className="w-full bg-[#E1E1E1] rounded-lg p-3"
+                                        className="w-full bg-white rounded-lg p-3"
                                     />
                                     <img
                                         src="/assets/wpf--sent.svg"

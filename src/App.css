@@ -73,3 +73,24 @@ section {
 section {
     padding-top: 120px;
 }
+
+// Add this CSS to your stylesheet
+const styles = `
+.custom-toast {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.custom-toast button[aria-label="close"] {
+  color: #fff;
+  opacity: 0.7;
+}
+
+.custom-toast button[aria-label="close"]:hover {
+  opacity: 1;
+}
+
+.Toastify__progress-bar {
+  height: 3px;
+}
+`;
+

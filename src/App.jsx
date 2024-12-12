@@ -15,6 +15,7 @@ import Message from './userpages/Message.jsx';
 import Orders from './userpages/Orders.jsx';
 import Payment from './userpages/Payment.jsx';
 import UserProfile from './userpages/UserProfile.jsx';
+import UserElements from './userpages/UserElements.jsx';
 import OwnerMessage from './ownerpages/OwnerMessage.jsx';
 import OwnerOrders from './ownerpages/OwnerOrders.jsx';
 import OwnerInventory from './ownerpages/OwnerInventory.jsx';
@@ -23,7 +24,10 @@ import OwnerDesign from './ownerpages/OwnerDesign.jsx';
 import OwnerPaymentList from './ownerpages/OwnerPaymentList.jsx';
 import OwnerReports from './ownerpages/OwnerReports.jsx';
 import OwnerPaymentAccess from './ownerpages/OwnerPaymentAccess.jsx';
-import ElementsDesign from './ownerpages/ElementsDesign.jsx';
+import CustomizeDesign from './ownerpages/CustomizeDesign.jsx';
+import ElementsDesign from './ownerpages/ElementsDesign.jsx'
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import AOS from 'aos';
 import 'aos/dist/aos.css';
@@ -63,6 +67,7 @@ function AppRoutes() {
 
   return (
     <>
+      <ToastContainer />
       {isLandingPage && <Header />}
 
       <Routes>
@@ -79,6 +84,7 @@ function AppRoutes() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/payment" element={<Payment />} />
         <Route path="/UserProfile" element={<UserProfile />} />
+        <Route path="/userpages/UserElements" element={<UserElements/>} />
 
         {/* Owner's routes */}
         <Route path="/owner/messages" element={<OwnerMessage />} />
@@ -89,7 +95,8 @@ function AppRoutes() {
         <Route path="/owner/PaymentList" element={<OwnerPaymentList />} />
         <Route path="/owner/reports" element={<OwnerReports />} />
         <Route path="/owner/PaymentAccess" element={<OwnerPaymentAccess />} />
-        <Route path="/elements" element={<ElementsDesign/>} />
+        <Route path="/owner/CustomizeDesign" element={<CustomizeDesign/>} />
+        <Route path="/owner/ElementsDesign" element={<ElementsDesign/>}/>
 
         {/* Default route for the landing page */}
         <Route

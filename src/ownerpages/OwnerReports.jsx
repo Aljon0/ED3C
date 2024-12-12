@@ -13,7 +13,7 @@ function OwnerReports(){
                 <div className="flex">
                     <span className="text-4xl text-[#2F424B] font-semibold mb-4 block">REPORTS</span>
                     <span className="text-[#333333] text-4xl ml-96">Generate Reports</span>
-                    <img src="./src/assets/fluent--document-data-24-regular.svg" className="cursor-pointer ml-2 mb-2"/>
+                    <img src="/assets/fluent--document-data-24-regular.svg" className="cursor-pointer ml-2 mb-2"/>
                     <hr className="border-2 border-solid border-[#333333]"/>
                 </div>
                 {/*Table for Order Details*/}

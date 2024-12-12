@@ -1,7 +1,7 @@
 function Home() {
 
     return (
-        <section className="home flex justify-center items-center min-h-screen pt-40 pb-8 px-[9%] bg-[#CACACA]" id="home">
+        <section className="home flex justify-center items-center min-h-screen pt-20 pb-8 px-[9%] bg-[#CACACA]" id="home">
             <div className="home-content mr-16" data-aos="fade-down">
                 <h3 className="text-[3.2rem] font-bold italic text-[#37474F]">WELCOME TO</h3>
                 <p className="text-4xl mb-16">DOUBLE SEVEN LAPIDA MAKER INCORPORATION!</p>

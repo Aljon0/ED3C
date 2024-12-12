@@ -1,84 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from 'firebase/auth';
-import { auth, firestore } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { signInWithEmailAndPassword, getAuth } from "firebase/auth";
+import { notifySuccess, notifyError } from "../general/CustomToast.js"
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('customer');
-  const [error, setError] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
-
+    
+    const auth = getAuth();
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      const uid = user.uid;
-
-      const userDocRef = doc(firestore, "Users", uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.role === 'owner') {
-          navigate('/owner/messages');
-        } else if (userData.role === 'customer') {
-          navigate('/catalog');
-        } else {
-          setError('Unknown role. Please contact support.');
-        }
-      } else {
-        setError('No user data found in Firestore.');
+  
+      // Query Firestore to get user data by email
+      const usersRef = collection(firestore, "Users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+  
+      if (querySnapshot.empty) {
+        notifyError('Incorrect email/password.');
+        return;
       }
-    } catch (err) {
-      if (err.code === 'auth/user-not-found') {
-        setError('No user found with this email.');
-      } else if (err.code === 'auth/wrong-password') {
-        setError('Incorrect password. Please try again.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many attempts. Please try again later.');
+  
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+  
+      // Route based on user role
+      if (userData.role === 'owner') {
+        notifySuccess('Login Successfully!');
+        navigate('/owner/messages');
+      } else if (userData.role === 'customer') {
+        notifySuccess('Login Successfully!');
+        navigate('/catalog');
       } else {
-        setError('Authentication failed. Please try again.');
+        notifyError('Invalid account type. Please contact support.');
+      }
+  
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      if (error.code === 'auth/invalid-credential') {
+        notifyError('Incorrect email/password.');
+      } else if (error.code === 'auth/too-many-requests') {
+        notifyError('Your account has been temporarily disabled due to too many failed login attempts.');
+      } else {
+        notifyError('Login failed. Please try again.');
       }
     }
-  };
-
-  const handleRoleChange = (e) => {
-    setRole(e.target.value);
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
-      setError('Please enter your email to reset the password.');
+      notifyError('Please enter your email address first.');
       return;
     }
+
     try {
-      await sendPasswordResetEmail(auth, email);
-      setError('Password reset email sent! Please check your inbox.');
-    } catch (err) {
-      if (err.code === 'auth/user-not-found') {
-        setError('No user found with this email.');
-      } else {
-        setError('Failed to send reset email. Please try again.');
+      const usersRef = collection(firestore, "Users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        notifyError('No user found with this email.');
+        return;
       }
+
+      const auth = getAuth();
+      await sendPasswordResetEmail(auth, email);
+      notifySuccess('Password reset email sent! Check your inbox.');
+    } catch (error) {
+      console.error('Password reset error:', error);
+      notifyError('Failed to send password reset email. Please try again.');
     }
   };
 
@@ -88,23 +87,12 @@ function Login() {
 
   return (
     <section className="login-content flex justify-center items-center min-h-screen pt-40 pb-8 px-[9%] bg-[#CACACA]" id="login">
-      <div className="text-white bg-[#2F424B] p-8 w-[500px] h-[600px] rounded">
+      <div className="text-white bg-[#2F424B] p-8 w-[500px] h-[500px] rounded">
         <h2 className="text-[3.2rem] font-bold text-center text-[#EDF5FC]">Log In</h2>
-        <div className="mb-4">
-          <label className="block text-lg text-center mb-2">Select Role:</label>
-          <select
-            value={role}
-            onChange={handleRoleChange}
-            className="block w-72 p-2 mb-4 ml-20 text-black rounded"
-          >
-            <option value="customer">Customer</option>
-            <option value="owner">Owner</option>
-          </select>
-        </div>
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} className="mt-8">
           <input
             type="text"
-            placeholder="Email/Username"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-72 p-2 mt-2 mb-4 ml-20 text-black rounded"
@@ -133,12 +121,11 @@ function Login() {
             Login
           </button>
         </form>
-        {error && <p className="text-red-500 text-center">{error}</p>}
         <span className="ml-24 cursor-default">
           Forgot Password?
           <button
             onClick={handleForgotPassword}
-            className="text-[#CAD2C5] hover:text-white pl-2 underline"
+            className="text-[#4FBDBA] hover:text-white pl-2 underline"
           >
             Reset here
           </button>
@@ -146,7 +133,7 @@ function Login() {
         <br />
         <span className="ml-24 cursor-default">
           No account?
-          <Link to="/register" className="text-[#CAD2C5] hover:text-white pl-2 underline">
+          <Link to="/register" className="text-[#4FBDBA] hover:text-white pl-2 underline">
             Register here
           </Link>
         </span>

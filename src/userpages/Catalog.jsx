@@ -1,6 +1,6 @@
 import UserHeader from "../components/UserHeader";
 import UserSideBar from "../components/UserSideBar";
-
+import { NavLink } from "react-router-dom";
 function Catalog(){
     
     return(<>
@@ -8,110 +8,28 @@ function Catalog(){
             <UserSideBar/>
             {/*Main Content*/}
             <main className="ml-64 p-8 mt-16">
-                <span className="font-bold text-[#37474F] text-7xl ml-64">CATALOG</span>
-                <p className="text-3xl text-[#333333] font-bold ml-16 mt-8">Gravestone</p>
+                <span className="font-bold text-[#37474F] text-7xl ml-60">CATALOG</span>
+            <div className="flex items-center justify-end mt-8 ml-16">
+                <NavLink to="/userpages/UserElements" className="text-[#37474F] text-3xl underline">Gravestone Design Elements</NavLink>
+            </div>
             
-                {/*Grid Layout for Boxes*/}
-                <div className="flex items-center mt-8">
-                    <img src="/assets/flowbite--angle-left-outline.svg" className="cursor-pointer mr-4"/>
-            
-                    {/* Grid container for the boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
+                {/* Main Container */}
+                <div className="relative bg-[#2F424B] w-[700px] h-[500px] rounded mt-12 p-4 overflow-y-auto">
+                    {/* Category Dropdown */}
+                    <div
+                        className="flex items-center cursor-pointer mb-4"
+                        onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                    >
+                        <img
+                            src="/assets/icon-park-outline--category-management.svg"
+                            className="w-6 h-6 mr-2"
+                            alt="Category"
+                        />
                     </div>
-            
-                    <img src="/assets/flowbite--angle-right-outline.svg" className="cursor-pointer ml-4"/>
-                </div>
 
-                <p className="text-3xl text-[#333333] font-bold ml-16 mt-8">Gravestone Base</p>
-                {/*Grid Layout for Boxes*/}
-                <div className="flex items-center mt-8">
-                    <img src="/assets/flowbite--angle-left-outline.svg" className="cursor-pointer mr-4"/>
-            
-                    {/*Grid container for the boxes*/}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
+                    <div className="relative mt-4 w-[150px] h-[100px] bg-[#DADADA] rounded cursor-pointer mr-4 mb-4">
+                        
                     </div>
-            
-                    <img src="/assets/flowbite--angle-right-outline.svg" className="cursor-pointer ml-4"/>
-                </div>
-
-                <p className="text-3xl text-[#333333] font-bold ml-16 mt-8">Urns</p>
-                {/*Grid Layout for Boxes*/}
-                <div className="flex items-center mt-8">
-                    <img src="/assets/flowbite--angle-left-outline.svg" className="cursor-pointer mr-4"/>
-            
-                    {/*Grid container for the boxes*/}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-                    </div>
-            
-                    <img src="/assets/flowbite--angle-right-outline.svg" className="cursor-pointer ml-4"/>
-                </div>
-
-                <p className="text-3xl text-[#333333] font-bold ml-16 mt-8">Table Signs</p>
-                {/*Grid Layout for Boxes*/}
-                <div className="flex items-center mt-8">
-                    <img src="/assets/flowbite--angle-left-outline.svg" className="cursor-pointer mr-4"/>
-            
-                    {/*Grid container for the boxes*/}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-            
-                        <div className="relative w-[200px] h-[150px] bg-[#FAFAFA] rounded shadow">
-                            <img src="/assets/ph--dots-three.svg" className="absolute bottom-2 right-2"/>
-                        </div>
-                    </div>
-            
-                    <img src="/assets/flowbite--angle-right-outline.svg" className="cursor-pointer ml-4"/>
                 </div>
             </main>
           </>)

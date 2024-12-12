@@ -4,3 +4,19 @@
 html{
     scroll-behavior: smooth;
 }
+
+/* Modern Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #37474F;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #576c75;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6a838d;
+  }
+  

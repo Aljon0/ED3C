@@ -79,37 +79,37 @@ function UserSideBar() {
                 <nav className="flex flex-col space-y-4 px-4">
                 <NavLink 
                             to="/catalog" 
-                            className={({ isActive }) => `group flex items-center text-lg font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
+                            className={({ isActive }) => `group flex items-center text-base font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
                         >
                             <img src="/assets/grommet-icons--catalog.svg" className="w-6 h-6 mr-2 group-hover:fill-current group-hover:text-white"/>Catalog
                         </NavLink>
                         <NavLink 
                             to="/canvas" 
-                            className={({ isActive }) => `group flex items-center text-lg font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
+                            className={({ isActive }) => `group flex items-center text-base font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
                         >
                             <img src="/assets/simple-icons--canvas.svg" className="w-6 h-6 mr-2 group-hover:fill-current group-hover:text-white"/>Canvas
                         </NavLink>
                         <NavLink 
                             to="/create" 
-                            className={({ isActive }) => `group flex items-center text-lg font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
+                            className={({ isActive }) => `group flex items-center text-base font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
                         >
                             <img src="/assets/ic--outline-design-services.svg" className="w-6 h-6 mr-2 group-hover:fill-current group-hover:text-white"/>Create a Design
                         </NavLink>
                         <NavLink 
                             to="/messages" 
-                            className={({ isActive }) => `group flex items-center text-lg font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
+                            className={({ isActive }) => `group flex items-center text-base font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
                         >
                             <img src="/assets/mi--message.svg" className="w-6 h-6 mr-2 group-hover:fill-current group-hover:text-white"/>Message
                         </NavLink>
                         <NavLink 
                             to="/orders" 
-                            className={({ isActive }) => `group flex items-center text-lg font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
+                            className={({ isActive }) => `group flex items-center text-base font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
                         >
                             <img src="/assets/mdi--cart-outline.svg" className="w-6 h-6 mr-2 group-hover:fill-current group-hover:text-white"/>Orders
                         </NavLink>
                         <NavLink 
                             to="/payment" 
-                            className={({ isActive }) => `group flex items-center text-lg font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
+                            className={({ isActive }) => `group flex items-center text-base font-medium p-2 rounded-md ${isActive ? 'bg-[#576c75] text-white' : 'text-gray-200 hover:bg-[#576c75] hover:text-white'}`}
                         >
                             <img src="/assets/ic--outline-payments.svg" className="w-6 h-6 mr-2 group-hover:fill-current group-hover:text-white"/>Payment
                         </NavLink>

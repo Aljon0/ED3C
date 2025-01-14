@@ -136,35 +136,6 @@ const TextDialog = ({ onClose, onAdd }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Size</label>
-            <select
-              value={height}
-              onChange={(e) => setHeight(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="0.1">Small</option>
-              <option value="0.15">Regular</option>
-              <option value="0.2">Large</option>
-              <option value="0.25">Extra Large</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Depth</label>
-            <select
-              value={extrusion}
-              onChange={(e) => setExtrusion(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="0.01">Thin</option>
-              <option value="0.02">Regular</option>
-              <option value="0.03">Thick</option>
-            </select>
-          </div>
-        </div>
-
         <div className="flex justify-end space-x-2 pt-4">
           <button
             type="button"

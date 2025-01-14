@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { firestore } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { signInWithEmailAndPassword, getAuth } from "firebase/auth";
+import { signInWithEmailAndPassword, getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { notifySuccess, notifyError } from "../general/CustomToast.js"
+import { Eye, EyeOff } from 'lucide-react';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -35,7 +36,7 @@ function Login() {
       // Route based on user role
       if (userData.role === 'owner') {
         notifySuccess('Login Successfully!');
-        navigate('/owner/messages');
+        navigate('/owner/dashboard');
       } else if (userData.role === 'customer') {
         notifySuccess('Login Successfully!');
         navigate('/catalog');
@@ -86,60 +87,76 @@ function Login() {
   };
 
   return (
-    <section className="login-content flex justify-center items-center min-h-screen pt-40 pb-8 px-[9%] bg-[#CACACA]" id="login">
-      <div className="text-white bg-[#2F424B] p-8 w-[500px] h-[500px] rounded">
-        <h2 className="text-[3.2rem] font-bold text-center text-[#EDF5FC]">Log In</h2>
-        <form onSubmit={handleLogin} className="mt-8">
-          <input
-            type="text"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-72 p-2 mt-2 mb-4 ml-20 text-black rounded"
-          /><br />
-          <div className="relative w-72 ml-20">
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-2 mt-2 mb-4 text-black rounded"
-            />
-            <button
-              type="button"
-              onClick={togglePasswordVisibility}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
-            >
-              <img
-                src={showPassword ? "/assets/stash--eye-opened-solid.svg" : "/assets/stash--eye-closed-solid.svg"}
-                alt={showPassword ? "Hide Password" : "Show Password"}
-                className="w-5 h-5"
-              />
-            </button>
-          </div>
-          <button type="submit" className="px-4 py-2 mt-4 ml-44 mb-4 text-xl bg-[#37474F] rounded-full hover:bg-[#576c75]">
-            Login
-          </button>
-        </form>
-        <span className="ml-24 cursor-default">
-          Forgot Password?
-          <button
-            onClick={handleForgotPassword}
-            className="text-[#4FBDBA] hover:text-white pl-2 underline"
-          >
-            Reset here
-          </button>
-        </span>
-        <br />
-        <span className="ml-24 cursor-default">
-          No account?
-          <Link to="/register" className="text-[#4FBDBA] hover:text-white pl-2 underline">
-            Register here
-          </Link>
-        </span>
-      </div>
+    <section className="min-h-screen bg-gradient-to-b from-[#CACACA] to-[#A8A8A8] py-8 px-4">
+        <div className="max-w-md mx-auto bg-[#2F424B] rounded-lg shadow-2xl mt-24">
+            <div className="p-5">
+                <h2 className="text-2xl font-bold text-center text-[#EDF5FC] mb-6">Log In</h2>
+                <form onSubmit={handleLogin} className="space-y-3">
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Email</label>
+                        <input
+                            type="email"
+                            id="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all"
+                            placeholder="Enter your email"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Password</label>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all pr-10"
+                                placeholder="Enter your password"
+                            />
+                            <button
+                                type="button"
+                                onClick={togglePasswordVisibility}
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#EDF5FC]/60 hover:text-[#EDF5FC]/80 transition-colors"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="pt-2 pb-1 space-y-3">
+                        <button 
+                            type="submit" 
+                            className="w-full px-4 py-2 bg-[#4FBDBA] text-white rounded-md hover:bg-[#4FBDBA]/90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4FBDBA] focus:ring-offset-1 focus:ring-offset-[#2F424B]"
+                        >
+                            Log In
+                        </button>
+                    </div>
+                </form>
+
+                <div className="mt-4 space-y-2 text-center">
+                    <p className="text-[#EDF5FC]/80 text-sm">
+                        Forgot Password?{' '}
+                        <button
+                            onClick={handleForgotPassword}
+                            className="text-[#4FBDBA] hover:text-[#4FBDBA]/80 transition-colors"
+                        >
+                            Reset here
+                        </button>
+                    </p>
+                    <p className="text-[#EDF5FC]/80 text-sm">
+                        No account?{' '}
+                        <Link 
+                            to="/register" 
+                            className="text-[#4FBDBA] hover:text-[#4FBDBA]/80 transition-colors"
+                        >
+                            Register here
+                        </Link>
+                    </p>
+                </div>
+            </div>
+        </div>
     </section>
-  );
+);
 }
 
 export default Login;

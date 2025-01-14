@@ -1,3 +1,4 @@
+// Shape.jsx
 import React from "react";
 import * as THREE from "three";
 
@@ -9,41 +10,42 @@ const Shape = React.forwardRef(({ type, texture, dimensions = {} }, ref) => {
   } = dimensions;
 
   const material = React.useMemo(() => {
-    return new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshStandardMaterial({
       map: texture,
       roughness: 0.01,
       metalness: 0.01,
     });
+    // Ensure the material doesn't interfere with other layers
+    mat.side = THREE.DoubleSide;
+    mat.depthTest = true;
+    mat.depthWrite = true;
+    mat.transparent = false;
+    mat.renderOrder = 0;
+    return mat;
   }, [texture]);
 
-  switch (type) {
-    case "gravestone":
-      return (
-        <mesh ref={ref} position={[0, 0, 0]} material={material}>
-          <boxGeometry args={[width, height, thickness]} />
-        </mesh>
-      );
-    case "base":
-      return (
-        <mesh ref={ref} position={[0, 0, 0]} material={material}>
-          <boxGeometry args={[width, 0.5, thickness]} />
-        </mesh>
-      );
-    case "Urns":
-      return (
-        <mesh ref={ref} position={[0, 0, 0]} material={material}>
-          <cylinderGeometry args={[width/2, width/2, height, 32]} />
-        </mesh>
-      );
-    case "table-signs":
-      return (
-        <mesh ref={ref} position={[0, 0, 0]} material={material}>
-          <boxGeometry args={[width, height, thickness]} />
-        </mesh>
-      );
-    default:
-      return null;
-  }
+  const getGeometry = () => {
+    switch (type) {
+      case "gravestone":
+        return <boxGeometry args={[width, height, thickness]} />;
+      case "base":
+        return <boxGeometry args={[width, 0.5, thickness]} />;
+      case "Urns":
+        return <cylinderGeometry args={[width/2, width/2, height, 32]} />;
+      case "table-signs":
+        return <boxGeometry args={[width, height, thickness]} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <group>
+      <mesh ref={ref} position={[0, 0, 0]} material={material}>
+        {getGeometry()}
+      </mesh>
+    </group>
+  );
 });
 
 export default Shape;

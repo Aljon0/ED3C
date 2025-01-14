@@ -4,7 +4,7 @@ function UndoRedo({ onUndo, onRedo }) {
   return (
     <>
       {/* Undo/Redo Tools */}
-      <div className="absolute bottom-4 right-4 flex gap-2 bg-[#2F424B] p-2 rounded-lg">
+      <div className="absolute bottom-4 right-3 flex gap-2 bg-[#2F424B] p-2 rounded-lg">
         <Tooltip text="Undo">
           <button
             className="w-8 h-8 cursor-pointer hover:opacity-80"

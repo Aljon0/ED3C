@@ -5,9 +5,9 @@ function LogoutModal({ isOpen, onClose, onConfirm }) {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-[#2F424B] rounded-lg shadow-lg w-96 p-6">
-                <h2 className="text-2xl font-bold text-white mb-4">Confirm Logout</h2>
-                <p className="text-gray-300 mb-6">Are you sure you want to log out of Double Seven?</p>
+            <div className="bg-white rounded-lg shadow-lg w-96 p-6">
+                <h2 className="text-2xl font-bold text-black mb-4">Confirm Logout</h2>
+                <p className="text-black mb-6">Are you sure you want to log out of Double Seven?</p>
                 <div className="flex justify-end space-x-4">
                     <button
                         onClick={onClose}

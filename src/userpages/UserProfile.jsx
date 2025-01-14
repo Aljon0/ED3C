@@ -5,12 +5,13 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import UserHeader from '../components/UserHeader.jsx';
+import { notifyError, notifySuccess } from '../general/CustomToast.js';
 
 function UserProfile() {
   const [user, setUser] = useState({
     firstName: '',
     surname: '',
-    imageUrl: 'https://via.placeholder.com/80',
+    imageUrl: '/assets/mingcute--user-4-line.svg',
     email: '',
     contact: '',
     address: '',
@@ -38,17 +39,17 @@ function UserProfile() {
             setUser({
               firstName: userData.firstName || '',
               surname: userData.surname || '',
-              imageUrl: userData.imageUrl || 'https://via.placeholder.com/80',
+              imageUrl: userData.imageUrl || '/assets/mingcute--user-4-line.svg',
               email: userData.email || '',
               contact: userData.contact || '',
               address: userData.address || '',
             });
           } else {
-            console.error("No user document found!");
+            notifyError("No user document found!");
             navigate('/login');
           }
         } catch (error) {
-          console.error("Error fetching user data: ", error);
+          notifyError("Error fetching user data: ", error);
           navigate('/login');
         }
       } else {
@@ -90,7 +91,7 @@ function UserProfile() {
   // Handle Save button click
   const handleSave = async () => {
     if (!userID) {
-      console.error("No user ID found");
+      notifyError("No user ID found");
       return;
     }
 
@@ -111,10 +112,10 @@ function UserProfile() {
 
       // Update Firestore
       await updateDoc(doc(db, 'Users', userID), updatedData);
-      alert('Profile updated successfully!');
+      notifySuccess('Profile updated successfully!');
     } catch (error) {
-      console.error("Error updating profile: ", error);
-      alert('Failed to update profile. Please try again.');
+      notifyError("Error updating profile: ", error);
+      notifyError('Failed to update profile. Please try again.');
     }
   };
 

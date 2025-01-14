@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth";
 import LogoutModal from "./LogoutModal"; // Import the modal component
+import UserNotifications from "./UserNotifications";
 
 function UserHeader() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,11 +30,7 @@ function UserHeader() {
 
                 {/* Icons aligned to the right */}
                 <div className="ml-auto flex items-center space-x-4">
-                    <img
-                        src="/assets/mdi--bell-outline.svg"
-                        className="size-8 cursor-pointer"
-                        alt="Notifications"
-                    />
+                    <UserNotifications/>
                     <img
                         src="/assets/line-md--log-out.svg"
                         className="size-8 cursor-pointer"

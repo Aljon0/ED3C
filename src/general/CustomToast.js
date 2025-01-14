@@ -13,8 +13,8 @@ export const notifySuccess = (message) => {
     progress: undefined,
     theme: "dark",
     style: {
-      background: '#2C3E50', // Dark slate-blue matching your theme
-      color: '#fff',
+      background: '#37474F', // Dark slate-blue matching your theme
+      color: '#FFF',
       borderRadius: '4px',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
     },
@@ -37,7 +37,7 @@ export const notifyError = (message) => {
     progress: undefined,
     theme: "dark",
     style: {
-      background: '#2C3E50', // Dark slate-blue matching your theme
+      background: '#37474F', // Dark slate-blue matching your theme
       color: '#fff',
       borderRadius: '4px',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
@@ -61,7 +61,7 @@ export const notifyWarning = (message) => {
     progress: undefined,
     theme: "dark",
     style: {
-      background: '#2C3E50', // Dark slate-blue matching your theme
+      background: '#37474F', // Dark slate-blue matching your theme
       color: '#fff',
       borderRadius: '4px',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'

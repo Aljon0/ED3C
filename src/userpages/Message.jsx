@@ -1,25 +1,163 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom"; // Add this import
 import UserHeader from "../components/UserHeader.jsx";
 import UserSideBar from "../components/UserSideBar.jsx";
 import { db, auth, storage } from "../firebase";
-import { collection, onSnapshot, addDoc, query, orderBy, doc, getDoc, setDoc, getDocs, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, query, orderBy, doc, getDoc, setDoc, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { notifyError, notifySuccess } from "../general/CustomToast.js";
+
+const formatMessageTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+    }).format(date);
+};
 
 function Message() {
-    const { userId } = useParams(); // Get the userId from URL parameters
-    const navigate = useNavigate(); // Add this hook for navigation
+    const { userId } = useParams();
+    const navigate = useNavigate();
     const [users, setUsers] = useState([]);
     const [message, setMessage] = useState("");
     const [messages, setMessages] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [ownerDetails, setOwnerDetails] = useState(null);
-
-    // Modal state
+    const messageContainerRef = useRef(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
 
-    const ownerID = 'Jl4zT8uPmLTJxEo3UdfWkj2Co0z2';  // Static owner ID
+    const ownerID = 'Jl4zT8uPmLTJxEo3UdfWkj2Co0z2';
+
+    const sendMessage = async () => {
+        if (!message.trim() || !currentUser) return;
+    
+        try {
+            const conversationID = `${ownerID}_${currentUser.uid}`; 
+    
+            const messageData = {
+                message: message.trim(),
+                sender: "customer", 
+                timestamp: new Date(),
+                customerID: currentUser.uid,
+                ownerID: ownerID 
+            };
+    
+            const messageRef = doc(db, "Messages", conversationID);
+            const docSnapshot = await getDoc(messageRef);
+    
+            if (!docSnapshot.exists()) {
+                await setDoc(messageRef, {
+                    customerID: currentUser.uid,
+                    ownerID: ownerID
+                });
+            }
+    
+            await addDoc(collection(
+                db, 
+                "Messages", 
+                conversationID, 
+                messageData.sender === "customer" ? "customerMessages" : "ownerMessages"
+            ), messageData);
+            
+            setMessage("");
+            
+            // Scroll to bottom after sending
+            setTimeout(() => {
+                if (messageContainerRef.current) {
+                    messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+                }
+            }, 100);
+        } catch (error) {
+            notifyError("Error sending message: ", error);
+        }
+    };
+
+    const handleImageUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file || !currentUser) return;
+
+        try {
+            const storageRef = ref(storage, `chatImages/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const imageUrl = await getDownloadURL(storageRef);
+
+            const conversationID = `${ownerID}_${currentUser.uid}`;
+
+            const messageData = {
+                imageUrl,
+                sender: "customer",
+                timestamp: new Date(),
+                customerID: currentUser.uid,
+                ownerID: ownerID
+            };
+
+            const messageRef = doc(db, "Messages", conversationID);
+            const docSnapshot = await getDoc(messageRef);
+
+            if (!docSnapshot.exists()) {
+                await setDoc(messageRef, {
+                    customerID: currentUser.uid,
+                    ownerID: ownerID
+                });
+            }
+
+            await addDoc(collection(db, "Messages", conversationID, "customerMessages"), messageData);
+            
+            // Scroll to bottom after sending image
+            setTimeout(() => {
+                if (messageContainerRef.current) {
+                    messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+                }
+            }, 100);
+        } catch (error) {
+            notifyError("Error uploading image: ", error);
+        }
+    };
+
+    const openModal = (imageUrl) => {
+        setSelectedImage(imageUrl);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedImage(null);
+    };
+
+    const handleSendMessage = async (event) => {
+        event.preventDefault(); // Prevent form submission
+        if (!message.trim()) return; // Don't send empty messages
+        
+        await sendMessage();
+    };
+
+    const handleKeyPress = (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            handleSendMessage(event);
+        }
+    };
+
+    // Add useEffect for ESC and Enter key handling
+    useEffect(() => {
+        const handleKeydown = (event) => {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+            // Remove the Enter key handling from here
+        };
+
+        if (isModalOpen) {
+            window.addEventListener('keydown', handleKeydown);
+        }
+
+        return () => {
+            window.removeEventListener('keydown', handleKeydown);
+        };
+    }, [isModalOpen]); // Remove message dependency
 
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -66,18 +204,27 @@ function Message() {
         const customerQuery = query(customerMessagesRef, orderBy("timestamp"));
         const ownerQuery = query(ownerMessagesRef, orderBy("timestamp"));
 
+        // Create a Set to track unique message IDs
+        let allMessages = [];
+
         const unsubscribeCustomer = onSnapshot(customerQuery, (snapshot) => {
             const customerMessages = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
                 senderType: "customer"
             }));
-            setMessages(prev => {
-                const allMessages = [...prev, ...customerMessages];
-                return allMessages.sort((a, b) => 
-                    a.timestamp.toMillis() - b.timestamp.toMillis()
-                );
-            });
+    
+            // Update only customer messages in the array
+            allMessages = [
+                ...allMessages.filter(msg => msg.senderType !== "customer"),
+                ...customerMessages
+            ];
+    
+            // Sort by timestamp and update state
+            const sortedMessages = allMessages.sort((a, b) => 
+                (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)
+            );
+            setMessages(sortedMessages);
         });
 
         const unsubscribeOwner = onSnapshot(ownerQuery, (snapshot) => {
@@ -86,152 +233,32 @@ function Message() {
                 ...doc.data(),
                 senderType: "owner"
             }));
-            setMessages(prev => {
-                const allMessages = [...prev, ...ownerMessages];
-                return allMessages.sort((a, b) => 
-                    a.timestamp.toMillis() - b.timestamp.toMillis()
-                );
-            });
+    
+            // Update only owner messages in the array
+            allMessages = [
+                ...allMessages.filter(msg => msg.senderType !== "owner"),
+                ...ownerMessages
+            ];
+    
+            // Sort by timestamp and update state
+            const sortedMessages = allMessages.sort((a, b) => 
+                (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)
+            );
+            setMessages(sortedMessages);
         });
-
+    
         return () => {
             unsubscribeCustomer();
             unsubscribeOwner();
+            allMessages = [];
         };
-    }, [currentUser, ownerID]);
+    }, [currentUser]);
 
-    const sendMessage = async () => {
-        if (!message || !currentUser) return;
-    
-        try {
-            const conversationID = `${ownerID}_${currentUser.uid}`;
-    
-            const messageData = {
-                message: message,
-                sender: "customer",
-                timestamp: new Date(),
-                customerID: currentUser.uid,
-                ownerID: ownerID
-            };
-    
-            const messageRef = doc(db, "Messages", conversationID);
-            const docSnapshot = await getDoc(messageRef);
-    
-            if (!docSnapshot.exists()) {
-                await setDoc(messageRef, {
-                    customerID: currentUser.uid,
-                    ownerID: ownerID
-                });
-            }
-    
-            await addDoc(collection(db, "Messages", conversationID, "customerMessages"), messageData);
-            setMessage("");
-        } catch (error) {
-            console.error("Error sending message: ", error);
-        }
-    };
-
-    const handleImageUpload = async (event) => {
-        const file = event.target.files[0];
-        if (!file || !currentUser) return;
-
-        try {
-            const storageRef = ref(storage, `chatImages/${Date.now()}_${file.name}`);
-            await uploadBytes(storageRef, file);
-            const imageUrl = await getDownloadURL(storageRef);
-
-            const conversationID = `${ownerID}_${currentUser.uid}`;
-
-            const messageData = {
-                imageUrl,
-                sender: "customer",
-                timestamp: new Date(),
-                customerID: currentUser.uid,
-                ownerID: ownerID
-            };
-
-            const messageRef = doc(db, "Messages", conversationID);
-            const docSnapshot = await getDoc(messageRef);
-
-            if (!docSnapshot.exists()) {
-                await setDoc(messageRef, {
-                    customerID: currentUser.uid,
-                    ownerID: ownerID
-                });
-            }
-
-            await addDoc(collection(db, "Messages", conversationID, "customerMessages"), messageData);
-            setMessages(prev => [...prev, messageData]);  // Add to local state for instant display
-        } catch (error) {
-            console.error("Error uploading image: ", error);
-        }
-    };
-
-    const openModal = (imageUrl) => {
-        setSelectedImage(imageUrl);
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setSelectedImage(null);
-    };
-
-    // Add useEffect for ESC and Enter key handling
     useEffect(() => {
-        const handleKeydown = (event) => {
-            if (event.key === 'Escape') {
-                closeModal();
-            } else if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault(); // Prevent default form submission
-                sendMessage();
-            }
-        };
-
-        if (isModalOpen || message.trim().length > 0) {
-            window.addEventListener('keydown', handleKeydown);
+        if (messageContainerRef.current) {
+            messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
         }
-
-        // Cleanup listener when component unmounts or modal closes
-        return () => {
-            window.removeEventListener('keydown', handleKeydown);
-        };
-    }, [isModalOpen, message]); // Re-run effect when modal state or message changes
-
-    const handleSendMessage = (event) => {
-        event.preventDefault(); // Prevent form submission
-        if (message.trim().length > 0) {
-            sendMessage();
-        }
-    };
-
-    const handleDeleteConversation = async () => {
-        if (!currentUser || !ownerDetails) return;
-      
-        const conversationID = `${ownerDetails.id}_${currentUser.uid}`;
-      
-        try {
-          // Delete customer's messages
-          const customerMessagesRef = collection(db, "Messages", conversationID, "customerMessages");
-          const customerMessagesSnapshot = await getDocs(customerMessagesRef);
-      
-          const deleteCustomerPromises = customerMessagesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-          await Promise.all(deleteCustomerPromises);
-      
-          // Update the main conversation document to remove the customer's ID
-          const messageRef = doc(db, "Messages", conversationID);
-          await updateDoc(messageRef, {
-            customerID: firebase.firestore.FieldValue.delete()
-          });
-      
-          setMessages([]);
-          setOwnerDetails(null);
-      
-          alert("Conversation deleted on your side.");
-        } catch (error) {
-          console.error("Error deleting conversation: ", error);
-        }
-      };
+    }, [messages]); 
     
     return (
         <>
@@ -242,50 +269,53 @@ function Message() {
                     <div className="w-full h-[500px] bg-[#DADADA]">
                     {currentUser ? (
                         <>
-                        <div className="w-full flex items-center justify-between p-4 bg-[#2F424B] text-white rounded">
+                        <div className="w-full flex items-center p-4 bg-[#2F424B] text-white rounded">
                             <div className="flex items-center">
-                            <img
-                                src="/assets/mingcute--user-4-line.svg"
-                                alt="Owner"
-                                className="rounded-full w-12 h-12 mr-4"
-                            />
-                            <h2 className="text-xl font-semibold">Owner</h2>
-                            </div>
-                            <div className="flex items-center">
-                            <img
-                                src="/assets/bx--trash-white.svg"
-                                alt="Trash"
-                                className="w-6 h-6 cursor-pointer"
-                                onClick={handleDeleteConversation}
-                            />
+                                <img
+                                    src="/assets/mingcute--user-4-line.svg"
+                                    alt="Owner"
+                                    className="rounded-full w-12 h-12 mr-4"
+                                />
+                                <h2 className="text-xl font-semibold">Owner</h2>
                             </div>
                         </div>
 
-                        <div className="w-full h-[300px] p-4 space-y-4 overflow-y-auto bg-[#DADADA] rounded">
-                            {messages.map((msg, idx) => (
-                            <div
-                                key={idx}
-                                className={`flex ${msg.senderType === "customer" ? "justify-end" : ""}`}
-                            >
+                        <div 
+                            ref={messageContainerRef}
+                            className="w-full h-[300px] p-4 space-y-4 overflow-y-auto bg-[#DADADA] rounded"
+                            style={{ scrollBehavior: 'smooth' }} // Add smooth scrolling
+                        >
+                            {messages.map((msg) => (
                                 <div
-                                className={`p-3 rounded-md max-w-xs ${
-                                    msg.senderType === "owner"
-                                    ? "bg-white text-black"
-                                    : "bg-[#37474F] text-white"
-                                }`}
+                                    key={msg.id}
+                                    className={`flex ${msg.senderType === "customer" ? "justify-end" : ""}`}
                                 >
-                                {msg.imageUrl ? (
-                                    <img
-                                    src={msg.imageUrl}
-                                    alt="Sent image"
-                                    className="max-w-full rounded-lg cursor-pointer"
-                                    onClick={() => openModal(msg.imageUrl)}
-                                    />
-                                ) : (
-                                    <p>{msg.message}</p>
-                                )}
+                                    <div className="flex flex-col">
+                                        <div
+                                            className={`p-3 rounded-lg max-w-xs ${
+                                                msg.senderType === "owner" 
+                                                    ? "bg-white text-black" 
+                                                    : "bg-[#37474F] text-white"
+                                            }`}
+                                        >
+                                            {msg.imageUrl ? (
+                                                <img
+                                                    src={msg.imageUrl}
+                                                    alt="Sent image"
+                                                    className="max-w-full rounded-lg cursor-pointer"
+                                                    onClick={() => openModal(msg.imageUrl)}
+                                                />
+                                            ) : (
+                                                <p>{msg.message}</p>
+                                            )}
+                                        </div>
+                                        <span className={`text-xs mt-1 ${
+                                            msg.senderType === "customer" ? "text-right" : "text-left"
+                                        } text-gray-600`}>
+                                            {formatMessageTime(msg.timestamp)}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
                             ))}
                         </div>
 
@@ -307,7 +337,7 @@ function Message() {
                                 placeholder="Type a message..."
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage(e)}
+                                onKeyPress={handleKeyPress}
                                 className="w-full bg-white rounded-lg p-3"
                             />
                             <img

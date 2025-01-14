@@ -14,18 +14,18 @@ import Create from './userpages/Create.jsx';
 import Message from './userpages/Message.jsx';
 import Orders from './userpages/Orders.jsx';
 import Payment from './userpages/Payment.jsx';
-import UserProfile from './userpages/UserProfile.jsx';
 import UserElements from './userpages/UserElements.jsx';
+import UserProfile from './userpages/UserProfile.jsx';
+import Dashboard from './ownerpages/Dashboard.jsx';
 import OwnerMessage from './ownerpages/OwnerMessage.jsx';
 import OwnerOrders from './ownerpages/OwnerOrders.jsx';
 import OwnerInventory from './ownerpages/OwnerInventory.jsx';
 import OwnerUserAccount from './ownerpages/OwnerUserAccount.jsx';
 import OwnerDesign from './ownerpages/OwnerDesign.jsx';
-import OwnerPaymentList from './ownerpages/OwnerPaymentList.jsx';
-import OwnerReports from './ownerpages/OwnerReports.jsx';
 import OwnerPaymentAccess from './ownerpages/OwnerPaymentAccess.jsx';
 import CustomizeDesign from './ownerpages/CustomizeDesign.jsx';
 import ElementsDesign from './ownerpages/ElementsDesign.jsx'
+import Reports from './ownerpages/Reports.jsx';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -84,19 +84,20 @@ function AppRoutes() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/payment" element={<Payment />} />
         <Route path="/UserProfile" element={<UserProfile />} />
-        <Route path="/userpages/UserElements" element={<UserElements/>} />
+        <Route path="/UserElements" element={<UserElements />} />
 
         {/* Owner's routes */}
-        <Route path="/owner/messages" element={<OwnerMessage />} />
+        <Route path="/owner/dashboard" element={<Dashboard />} />
+        <Route path="/owner/messages/" element={<OwnerMessage />} />
+        <Route path="/owner/messages/:userId" element={<OwnerMessage />} />
         <Route path="/owner/orders" element={<OwnerOrders />} />
         <Route path="/owner/inventory" element={<OwnerInventory />} />
         <Route path="/owner/UserAccount" element={<OwnerUserAccount />} />
         <Route path="/owner/design" element={<OwnerDesign />} />
-        <Route path="/owner/PaymentList" element={<OwnerPaymentList />} />
-        <Route path="/owner/reports" element={<OwnerReports />} />
         <Route path="/owner/PaymentAccess" element={<OwnerPaymentAccess />} />
         <Route path="/owner/CustomizeDesign" element={<CustomizeDesign/>} />
         <Route path="/owner/ElementsDesign" element={<ElementsDesign/>}/>
+        <Route path="/owner/Reports" element={<Reports/>}/>
 
         {/* Default route for the landing page */}
         <Route

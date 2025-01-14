@@ -5,6 +5,7 @@ import { collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore"
 import { db } from "../firebase"; // Assuming firebase.js exports db for Firestore
 import { sendBanNotificationEmail } from "/utils/emailService"; // Assuming a utility to send emails
 import { useAuth } from "../components/AuthContext";
+import { notifyError, notifySuccess, notifyWarning } from "../general/CustomToast.js";
 
 function OwnerUserAccount() {
   const { currentUser } = useAuth(); // Get the current authenticated user
@@ -43,7 +44,7 @@ function OwnerUserAccount() {
   // Function to handle user ban
   const handleBanUser = async (userId, email) => {
     if (currentUserData?.role !== 'owner') {
-      alert("Only the owner can ban users.");
+      notifyWarning("Only the owner can ban users.");
       return;
     }
 
@@ -57,14 +58,14 @@ function OwnerUserAccount() {
         // Send email notification to the user
         await sendBanNotificationEmail(email);
         
-        alert("User has been banned and notified via email.");
+        notifySuccess("User has been banned and notified via email.");
         setUsers(users.filter(user => user.id !== userId));
       } catch (error) {
-        console.error("Error banning user: ", error);
-        alert("Failed to ban the user. Please try again.");
+        notifyError("Error banning user: ", error);
+        notifyError("Failed to ban the user. Please try again.");
       }
     } else {
-      alert("Ban action cancelled.");
+      notifySuccess("Ban action cancelled.");
     }
   };
 
@@ -102,30 +103,21 @@ function OwnerUserAccount() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">USERNAME</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EMAIL</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FIRST NAME</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SURNAME</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CONTACT#</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ADDRESS</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ACTION</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">EMAIL</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">FIRST NAME</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">SURNAME</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">CONTACT#</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">ADDRESS</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.map((user) => (
                   <tr key={user.id}>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.id}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.email}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">{user.firstName}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">{user.surname}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">{user.contact}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">{user.address}</td>
-                    <td
-                      className="px-2 py-4 whitespace-nowrap text-sm text-red-500 cursor-pointer"
-                      onClick={() => handleBanUser(user.id, user.email)}
-                    >
-                      BAN
-                    </td>
+                    <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-black">{user.email}</td>
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.firstName}</td>
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.surname}</td>
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.contact}</td>
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.address}</td>
                   </tr>
                 ))}
               </tbody>

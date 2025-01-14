@@ -96,16 +96,34 @@ const StyleTools = ({
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Check if file is PNG
+      if (file.type !== 'image/png') {
+        alert('Please upload a PNG file with transparent background');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
-        onImageUpload(e.target.result);
+        const img = new Image();
+        img.onload = () => {
+          // Create a canvas to check transparency
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+
+          // Convert to base64 and pass to parent
+          onImageUpload(e.target.result);
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
   };
 
   return (
-    <div className="absolute top-4 right-4 flex gap-2 bg-[#2F424B] p-2 rounded-lg">
+    <div className="absolute top-4 right-3 flex gap-2 bg-[#2F424B] p-2 rounded-lg">
       <div className="relative">
         <Tooltip text="Change Texture">
           <button
@@ -143,7 +161,7 @@ const StyleTools = ({
         )}
       </div>
 
-      <Tooltip text="Upload Design">
+      <Tooltip text="Upload PNG Image">
         <label htmlFor="file-upload" className="cursor-pointer w-8 h-8">
           <img
             src="/assets/material-symbols--upload.svg"
@@ -154,7 +172,7 @@ const StyleTools = ({
         <input
           id="file-upload"
           type="file"
-          accept="image/*"
+          accept="image/png"
           className="hidden"
           onChange={handleImageUpload}
         />

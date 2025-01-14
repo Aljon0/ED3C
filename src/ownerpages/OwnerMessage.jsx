@@ -1,12 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import OwnerHeader from "../components/OwnerHeader.jsx";
 import OwnerSideBar from "../components/OwnerSideBar.jsx";
 import { db, auth, storage } from "../firebase";
-import { collection, onSnapshot, addDoc, query, orderBy, where, getDoc, doc, getDocs, deleteDoc, setDoc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, query, orderBy, where, getDoc, doc, getDocs, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../components/AuthContext.jsx";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { notifyError } from "../general/CustomToast.js";
 
+const formatMessageTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+    }).format(date);
+};
 
 function OwnerMessage() {
     const { userId } = useParams();
@@ -18,14 +28,26 @@ function OwnerMessage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
+    const [lastMessages, setLastMessages] = useState({});
+    const [unreadMessages, setUnreadMessages] = useState({});
+    const messageContainerRef = useRef(null);
+    const navigate = useNavigate(); 
+
+    useEffect(() => {
+        if (messageContainerRef.current) {
+            messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+        }
+    }, [messages]);
 
     useEffect(() => {
         if (!currentUser) return;
         const messagesRef = collection(db, "Messages");
         const q = query(messagesRef, where("ownerID", "==", currentUser.uid));
+        
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const usersSet = new Set();
             const usersList = [];
+            
             for (const docSnapshot of snapshot.docs) {
                 const { customerID } = docSnapshot.data();
                 if (customerID && !usersSet.has(customerID)) {
@@ -50,47 +72,78 @@ function OwnerMessage() {
                 }
             }
         });
+        
         return () => unsubscribe();
     }, [currentUser, userId]);
+
+    const handleUserSelect = async (user) => {
+        setSelectedUser(user);
+        navigate(`/owner/messages/${user.id}`);
+
+        if (currentUser) {
+            const conversationID = `${currentUser.uid}_${user.id}`;
+            
+            setUnreadMessages(prev => {
+                const newUnread = { ...prev };
+                delete newUnread[user.id];
+                return newUnread;
+            });
+
+            // Mark messages as read in Firestore
+            const customerMessagesRef = collection(db, "Messages", conversationID, "customerMessages");
+            const unreadMessagesQuery = query(customerMessagesRef, where("read", "==", false));
+            const unreadMessagesSnap = await getDocs(unreadMessagesQuery);
+
+            const batch = writeBatch(db);
+            unreadMessagesSnap.docs.forEach((doc) => {
+                batch.update(doc.ref, { read: true });
+            });
+            await batch.commit();
+        }
+    };
 
     useEffect(() => {
         if (!selectedUser || !currentUser) return;
 
-        // Create conversation ID in the same format as the customer component
         const conversationID = `${currentUser.uid}_${selectedUser.id}`;
         setMessages([]); // Clear previous messages
 
-        // Create or ensure conversation document exists
-        const ensureConversation = async () => {
-            const messageRef = doc(db, "Messages", conversationID);
-            const docSnapshot = await getDoc(messageRef);
-            
-            if (!docSnapshot.exists()) {
-                await setDoc(messageRef, {
-                    customerID: selectedUser.id,
-                    ownerID: currentUser.uid
-                });
-            }
-        };
-        ensureConversation();
-
-        // Listen to both customer and owner messages
         const customerMessagesRef = collection(db, "Messages", conversationID, "customerMessages");
         const ownerMessagesRef = collection(db, "Messages", conversationID, "ownerMessages");
 
         const customerQuery = query(customerMessagesRef, orderBy("timestamp"));
         const ownerQuery = query(ownerMessagesRef, orderBy("timestamp"));
 
-        const unsubscribeCustomer = onSnapshot(customerQuery, (snapshot) => {
-            const customerMessages = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                senderType: "customer"
-            }));
-            setMessages(prev => {
-                const allMessages = [...prev.filter(m => m.senderType !== "customer"), ...customerMessages];
-                return allMessages.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+        let allMessages = [];
+
+        const unsubscribeCustomer = onSnapshot(customerQuery, async (snapshot) => {
+            const batch = writeBatch(db);
+            const customerMessages = snapshot.docs.map(doc => {
+                const data = doc.data();
+                // Mark unread messages as read
+                if (!data.read) {
+                    batch.update(doc.ref, { read: true });
+                }
+                return {
+                    id: doc.id,
+                    ...data,
+                    senderType: "customer"
+                };
             });
+
+            // Commit the batch update
+            await batch.commit();
+
+            // Update messages in state
+            allMessages = [
+                ...allMessages.filter(msg => msg.senderType !== "customer"),
+                ...customerMessages
+            ];
+
+            const sortedMessages = allMessages.sort((a, b) => 
+                (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)
+            );
+            setMessages(sortedMessages);
         });
 
         const unsubscribeOwner = onSnapshot(ownerQuery, (snapshot) => {
@@ -99,33 +152,39 @@ function OwnerMessage() {
                 ...doc.data(),
                 senderType: "owner"
             }));
-            setMessages(prev => {
-                const allMessages = [...prev.filter(m => m.senderType !== "owner"), ...ownerMessages];
-                return allMessages.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
-            });
+
+            allMessages = [
+                ...allMessages.filter(msg => msg.senderType !== "owner"),
+                ...ownerMessages
+            ];
+
+            const sortedMessages = allMessages.sort((a, b) => 
+                (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)
+            );
+            setMessages(sortedMessages);
         });
 
         return () => {
             unsubscribeCustomer();
             unsubscribeOwner();
+            allMessages = [];
         };
-    }, [selectedUser, currentUser]);
+    }, [currentUser, selectedUser]);
 
     const sendMessage = async () => {
-        if (!selectedUser || !message || !currentUser) return;
-
-        const conversationID = `${currentUser.uid}_${selectedUser.id}`;
+        if (!message.trim() || !currentUser || !selectedUser) return;
 
         try {
+            const conversationID = `${currentUser.uid}_${selectedUser.id}`;
+
             const messageData = {
-                message: message,
-                sender: "owner",
+                message: message.trim(),
+                sender: "owner", 
                 timestamp: new Date(),
                 customerID: selectedUser.id,
                 ownerID: currentUser.uid
             };
 
-            // Ensure the main conversation document exists
             const messageRef = doc(db, "Messages", conversationID);
             const docSnapshot = await getDoc(messageRef);
 
@@ -136,10 +195,22 @@ function OwnerMessage() {
                 });
             }
 
-            await addDoc(collection(db, "Messages", conversationID, "ownerMessages"), messageData);
+            await addDoc(collection(
+                db, 
+                "Messages", 
+                conversationID, 
+                "ownerMessages"
+            ), messageData);
+            
             setMessage("");
+            
+            setTimeout(() => {
+                if (messageContainerRef.current) {
+                    messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+                }
+            }, 100);
         } catch (error) {
-            console.error("Error sending message: ", error);
+            notifyError("Error sending message: ", error);
         }
     };
 
@@ -173,38 +244,16 @@ function OwnerMessage() {
             }
 
             await addDoc(collection(db, "Messages", conversationID, "ownerMessages"), messageData);
+            
+            setTimeout(() => {
+                if (messageContainerRef.current) {
+                    messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+                }
+            }, 100);
         } catch (error) {
-            console.error("Error uploading image: ", error);
+            notifyError("Error uploading image: ", error);
         }
     };
-
-    const handleDeleteConversation = async () => {
-        if (!selectedUser || !currentUser) return;
-      
-        const conversationID = `${currentUser.uid}_${selectedUser.id}`;
-      
-        try {
-          // Delete owner's messages
-          const ownerMessagesRef = collection(db, "Messages", conversationID, "ownerMessages");
-          const ownerMessagesSnapshot = await getDocs(ownerMessagesRef);
-      
-          const deleteOwnerPromises = ownerMessagesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-          await Promise.all(deleteOwnerPromises);
-      
-          // Update the main conversation document to remove the owner's ID
-          const messageRef = doc(db, "Messages", conversationID);
-          await updateDoc(messageRef, {
-            ownerID: firebase.firestore.FieldValue.delete()
-          });
-      
-          setMessages([]);
-          setSelectedUser(null);
-      
-          alert("Conversation deleted on your side.");
-        } catch (error) {
-          console.error("Error deleting conversation: ", error);
-        }
-      };
 
     const openModal = (imageUrl) => {
         setSelectedImage(imageUrl);
@@ -215,80 +264,153 @@ function OwnerMessage() {
         setIsModalOpen(false);
         setSelectedImage(null);
     };
-    
-     // Add useEffect for ESC and Enter key handling
+
     useEffect(() => {
         const handleKeydown = (event) => {
             if (event.key === 'Escape') {
                 closeModal();
-            } else if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault(); // Prevent default form submission
-                sendMessage();
             }
         };
 
-        if (isModalOpen || message.trim().length > 0) {
+        if (isModalOpen) {
             window.addEventListener('keydown', handleKeydown);
         }
 
-        // Cleanup listener when component unmounts or modal closes
         return () => {
             window.removeEventListener('keydown', handleKeydown);
         };
-    }, [isModalOpen, message]); // Re-run effect when modal state or message changes
+    }, [isModalOpen]);
 
-    const handleSendMessage = (event) => {
-        event.preventDefault(); // Prevent form submission
-        if (message.trim().length > 0) {
-            sendMessage();
+    const handleSendMessage = async (event) => {
+        event.preventDefault();
+        if (!message.trim()) return;
+        await sendMessage();
+    };
+
+    const handleKeyPress = (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            handleSendMessage(event);
         }
     };
 
-return (
+    useEffect(() => {
+        if (!currentUser) return;
+
+        const unsubscribeUnread = onSnapshot(
+            query(collection(db, "Messages")),
+            async (snapshot) => {
+                const unreadCounts = {};
+                const lastMsgs = {};
+
+                for (const docSnapshot of snapshot.docs) {
+                    const conversationData = docSnapshot.data();
+                    if (conversationData.ownerID === currentUser.uid) {
+                        const customerId = conversationData.customerID;
+                        const conversationId = docSnapshot.id;
+
+                        const customerMessagesRef = collection(db, "Messages", conversationId, "customerMessages");
+                        const customerMessagesQuery = query(customerMessagesRef, orderBy("timestamp", "desc"));
+                        const customerMessagesSnap = await getDocs(customerMessagesQuery);
+
+                        let unreadCount = 0;
+                        if (!customerMessagesSnap.empty) {
+                            const lastMessage = customerMessagesSnap.docs[0].data();
+                            lastMsgs[customerId] = {
+                                message: lastMessage.message || (lastMessage.imageUrl ? "Sent an image" : ""),
+                                timestamp: lastMessage.timestamp
+                            };
+
+                            unreadCount = customerMessagesSnap.docs.filter(doc => {
+                                const msgData = doc.data();
+                                return !msgData.read;
+                            }).length;
+                        }
+
+                        if (unreadCount > 0) {
+                            unreadCounts[customerId] = unreadCount;
+                        }
+                    }
+                }
+
+                setUnreadMessages(unreadCounts);
+                setLastMessages(lastMsgs);
+            }
+        );
+
+        return () => unsubscribeUnread();
+    }, [currentUser]);
+
+    return (
         <>
             <OwnerHeader />
             <OwnerSideBar />
             <main className="ml-64 p-8 mt-16 flex">
                 <div className="w-[400px] h-[500px] bg-[#2F424B] rounded-md p-4 overflow-y-auto">
-                        <input
-                            type="text"
-                            placeholder="Search users..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full mb-4 p-2 rounded-md bg-[#576c75] text-white outline-none"
-                        />
-                        {users.length > 0 ? (
-                            users
-                                .filter(
-                                    (user) =>
-                                        (user.firstname && user.firstname.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                                        (user.surname && user.surname.toLowerCase().includes(searchQuery.toLowerCase()))
-                                )
-                                .map((user) => (
-                                    <div
-                                        key={user.id}
-                                        className={`flex flex-col m-2 cursor-pointer rounded-md p-2 transition-colors duration-300 ${
-                                            selectedUser?.id === user.id ? 'bg-[#576c75]' : 'hover:bg-[#37474F]'
-                                        }`}
-                                        onClick={() => setSelectedUser(user)}
-                                    >
+                    <input
+                        type="text"
+                        placeholder="Search users..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full mb-4 p-2 rounded-md bg-[#576c75] text-white outline-none"
+                    />
+                    {users.length > 0 ? (
+                        users
+                            .filter(
+                                (user) =>
+                                    (user.firstname && user.firstname.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                                    (user.surname && user.surname.toLowerCase().includes(searchQuery.toLowerCase()))
+                            )
+                            .sort((a, b) => {
+                                // Sort by last message timestamp, most recent first
+                                const timeA = lastMessages[a.id]?.timestamp?.toMillis() || 0;
+                                const timeB = lastMessages[b.id]?.timestamp?.toMillis() || 0;
+                                return timeB - timeA;
+                            })
+                            .map((user) => (
+                                <div
+                                    key={user.id}
+                                    className={`flex flex-col m-2 cursor-pointer rounded-md p-2 transition-colors duration-300 ${
+                                        selectedUser?.id === user.id ? 'bg-[#576c75]' : 'hover:bg-[#37474F]'
+                                    }`}
+                                    onClick={() => handleUserSelect(user)}
+                                >
+                                    <div className="flex items-center justify-between">
                                         <div className="flex items-center">
-                                            <img
-                                                src={user.imageUrl || "https://via.placeholder.com/80"}
-                                                alt={user.firstname}
-                                                className="rounded-full w-16 h-16"
-                                            />
-                                            <div className="ml-4">
-                                                <h2 className="text-base font-semibold text-white leading-3">
+                                            <div className="relative">
+                                                <img
+                                                    src={user.imageUrl || "/assets/mingcute--user-4-line.svg"}
+                                                    alt={user.firstname}
+                                                    className="rounded-full w-16 h-16"
+                                                />
+                                                {unreadMessages[user.id] && (
+                                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                                        {unreadMessages[user.id]}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="ml-4 flex flex-col">
+                                                <h2 className="text-base font-semibold text-white">
                                                     {user.firstName} {user.surname}
                                                 </h2>
+                                                {lastMessages[user.id] && (
+                                                    <>
+                                                        <p className="text-sm text-gray-300 truncate max-w-[200px]">
+                                                            {lastMessages[user.id].message}
+                                                        </p>
+                                                        <span className="text-xs text-gray-400">
+                                                            {formatMessageTime(lastMessages[user.id].timestamp)}
+                                                        </span>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                ))
-                        ) : (
-                            <p className="text-white">No users found.</p>
-                        )}
+                                </div>
+                            ))
+                    ) : (
+                        <p className="text-white">No users found.</p>
+                    )}
                 </div>
 
                     <div className="w-[650px] h-[500px] bg-[#DADADA] flex flex-col justify-between rounded-lg shadow-lg ml-4">
@@ -297,7 +419,7 @@ return (
                                 <div className="w-full flex items-center justify-between p-4 bg-[#2F424B] text-white rounded-t-lg">
                                     <div className="flex items-center">
                                         <img
-                                            src={selectedUser.imageUrl || "/assets/placeholder.png"}
+                                            src={selectedUser.imageUrl || "/assets/mingcute--user-4-line.svg"}
                                             alt={selectedUser.firstName}
                                             className="rounded-full w-12 h-12 mr-4"
                                         />
@@ -305,41 +427,46 @@ return (
                                             {selectedUser.firstName} {selectedUser.surname}
                                         </h2>
                                     </div>
-                                    <div className="flex items-center">
-                                        <img
-                                            src="/assets/bx--trash-white.svg"
-                                            alt="Trash"
-                                            className="w-6 h-6 cursor-pointer"
-                                            onClick={handleDeleteConversation}
-                                        />
-                                    </div>
                                 </div>
 
-                                <div className="flex-grow overflow-y-auto mb-4 space-y-4 bg-[#DADADA] rounded-b-lg p-4">
+                                <div
+                                    ref={messageContainerRef}
+                                    className="flex-grow overflow-y-auto mb-4 space-y-4 bg-[#DADADA] rounded-b-lg p-4"
+                                    style={{ scrollBehavior: 'smooth' }} // Add smooth scrolling
+                                >
                                     {messages.map((msg, idx) => (
                                         <div
-                                            key={idx}
+                                            key={msg.id}
                                             className={`flex ${msg.senderType === "owner" ? "justify-end" : ""}`}
                                         >
-                                            <div
-                                                className={`p-3 rounded-lg max-w-xs ${
-                                                    msg.senderType === "owner" ? "bg-[#37474F] text-white" : "bg-white text-black"
-                                                }`}
-                                            >
-                                                {msg.imageUrl ? (
-                                                    <img
-                                                        src={msg.imageUrl}
-                                                        alt="Sent image"
-                                                        className="max-w-full rounded-lg cursor-pointer"
-                                                        onClick={() => openModal(msg.imageUrl)}
-                                                    />
-                                                ) : (
-                                                    <p>{msg.message}</p>
-                                                )}
+                                            <div className="flex flex-col">
+                                                <div
+                                                    className={`p-3 rounded-lg max-w-xs ${
+                                                        msg.senderType === "owner" ? "bg-[#37474F] text-white" : "bg-white text-black"
+                                                    }`}
+                                                >
+                                                    {msg.imageUrl ? (
+                                                        <img
+                                                            src={msg.imageUrl}
+                                                            alt="Sent image"
+                                                            className="max-w-full rounded-lg cursor-pointer"
+                                                            onClick={() => openModal(msg.imageUrl)}
+                                                        />
+                                                    ) : (
+                                                        <p>{msg.message}</p>
+                                                    )}
+                                                </div>
+                                                <span className={`text-xs mt-1 ${
+                                                    msg.senderType === "owner" ? "text-right" : "text-left"
+                                                } text-gray-600`}>
+                                                    {formatMessageTime(msg.timestamp)}
+                                                </span>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
+                            
+                                
 
                                 <div className="flex items-center p-4 bg-[#DADADA] rounded-lg shadow-md">
                                     <img
@@ -359,7 +486,7 @@ return (
                                         placeholder="Type a message..."
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage(e)}
+                                        onKeyPress={handleKeyPress}
                                         className="w-full bg-white rounded-lg p-3"
                                     />
                                     <img

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
-import { auth } from "../firebase"; // Adjust the import path
-import LogoutModal from "./LogoutModal"; // Import the modal component
+import { auth } from "../firebase"; // Adjust the import path if necessary
+import LogoutModal from "./LogoutModal"; // Ensure this component is implemented and imported correctly
+import OwnerNotifications from "./OwnerNotifications"; // Ensure this component is implemented and imported correctly
 
 function OwnerHeader() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,11 +30,7 @@ function OwnerHeader() {
 
                 {/* Icons aligned to the right */}
                 <div className="ml-auto flex items-center space-x-4">
-                    <img
-                        src="/assets/mdi--bell-outline.svg"
-                        className="size-8 cursor-pointer"
-                        alt="Notifications"
-                    />
+                    <OwnerNotifications />
                     <img
                         src="/assets/line-md--log-out.svg"
                         className="size-8 cursor-pointer"

@@ -8,7 +8,7 @@ function UserSideBar() {
     const [user, setUser] = useState({
         firstName: '',
         surname: '',
-        imageUrl: 'https://via.placeholder.com/80',
+        imageUrl: 'https://placekitten.com/80/80',
     });
 
     const [userID, setUserID] = useState(null);
@@ -26,7 +26,7 @@ function UserSideBar() {
                     setUser({
                         firstName,
                         surname,
-                        imageUrl: user.photoURL || 'https://via.placeholder.com/80',
+                        imageUrl: user.photoURL || 'https://placekitten.com/80/80',
                     });
                 }
             } else {
@@ -48,7 +48,7 @@ function UserSideBar() {
               setUser({
                 firstName: userData.firstName || '',
                 surname: userData.surname || '',
-                imageUrl: userData.imageUrl || 'https://via.placeholder.com/80', // Get the saved image URL
+                imageUrl: userData.imageUrl || 'https://placekitten.com/80/80', // Get the saved image URL
               });
             }
           } catch (error) {
@@ -61,7 +61,7 @@ function UserSideBar() {
 
     return (
         <div className="flex">
-            <aside className="fixed top-0 left-0 w-64 h-full bg-[#37474F] text-white pt-24">
+            <aside className="fixed top-0 left-0 w-64 h-full bg-[#2F424B] text-white pt-24 z-10">
                 <div className="flex flex-col items-center mb-10">
                     {/* Link user image to the UserProfile page */}
                     <NavLink to="/UserProfile">

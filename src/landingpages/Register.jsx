@@ -1,10 +1,29 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { setDoc, doc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, getAuth } from 'firebase/auth';
 import { db } from '../firebase';
+import { notifyError, notifySuccess } from '../general/CustomToast';
+import { Eye, EyeOff } from 'lucide-react';
 
 function Register() {
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [emailExists, setEmailExists] = useState(false);
+    const togglePasswordVisibility = () => setShowPassword(!showPassword);
+    const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
+
+    const checkEmailExists = async (email) => {
+        const auth = getAuth();
+        try {
+            const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+            return signInMethods.length > 0;
+        } catch (error) {
+            console.error("Error checking email:", error);
+            return false;
+        }
+    };
+
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -18,7 +37,6 @@ function Register() {
     const [errors, setErrors] = useState({});
     const navigate = useNavigate();
 
-    // Handle all input changes
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -33,7 +51,6 @@ function Register() {
         }
     };
 
-    // Validation functions
     const validateEmail = (email) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email) return 'Email is required';
@@ -74,8 +91,8 @@ function Register() {
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        
-        // Validate all fields
+        setEmailExists(false); // Reset email exists error
+
         const newErrors = {
             email: validateEmail(formData.email),
             password: validatePassword(formData.password),
@@ -97,12 +114,17 @@ function Register() {
         }
 
         try {
+            // Check if email exists before attempting to create account
+            const emailTaken = await checkEmailExists(formData.email);
+            if (emailTaken) {
+                setEmailExists(true);
+                return;
+            }
+
             const auth = getAuth();
-            // Create user in Firebase Authentication
             const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
             const user = userCredential.user;
 
-            // Store additional user information in Firestore
             await setDoc(doc(db, 'Users', user.uid), {
                 email: formData.email,
                 firstName: formData.firstName,
@@ -112,117 +134,166 @@ function Register() {
                 role: 'customer'
             });
 
-            alert('Registration successful! Please log in.');
+            notifySuccess('Registration successful! Please log in.');
             navigate('/login');
         } catch (err) {
-            console.error('Registration error: ', err);
-            setErrors(prev => ({
-                ...prev,
-                submit: 'Registration failed. Please try again.'
-            }));
+            if (err.code === 'auth/email-already-in-use') {
+                setEmailExists(true);
+            } else {
+                notifyError('Registration error: ' + err.message);
+                setErrors(prev => ({
+                    ...prev,
+                    submit: 'Registration failed. Please try again.'
+                }));
+            }
         }
     };
 
     return (
-        <section className="login-content flex justify-center items-center min-h-screen pt-24 pb-8 px-[9%] bg-[#CACACA]" id="register">
-            <div className="text-white bg-[#2F424B] px-8 w-[1200px] h-auto py-8 rounded">
-                <h2 className="text-[3.2rem] font-bold text-center text-[#EDF5FC]">Create Account</h2>
-                <h6 className="text-center p-2">As</h6>
-                <h4 className="text-center text-2xl">Customer</h4>
-
-                {errors.submit && (
-                    <p className="text-red-500 text-center mt-4">{errors.submit}</p>
-                )}
-
-                <form className="grid grid-cols-2 gap-6 mt-8" onSubmit={handleRegister}>
-                    <div>
-                        <label htmlFor="email" className="block text-xl">Email :</label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            className={`w-full p-2 mt-2 mb-1 text-black rounded ${errors.email ? 'border-2 border-red-500' : ''}`}
-                            value={formData.email}
-                            onChange={handleChange}
-                        />
-                        {errors.email && <p className="text-red-500 text-sm mb-2">{errors.email}</p>}
-
-                        <label htmlFor="password" className="block text-xl">Password :</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            className={`w-full p-2 mt-2 mb-1 text-black rounded ${errors.password ? 'border-2 border-red-500' : ''}`}
-                            value={formData.password}
-                            onChange={handleChange}
-                        />
-                        {errors.password && <p className="text-red-500 text-sm mb-2">{errors.password}</p>}
-
-                        <label htmlFor="confirmPassword" className="block text-xl">Confirm Password :</label>
-                        <input
-                            type="password"
-                            id="confirmPassword"
-                            name="confirmPassword"
-                            className={`w-full p-2 mt-2 mb-1 text-black rounded ${errors.confirmPassword ? 'border-2 border-red-500' : ''}`}
-                            value={formData.confirmPassword}
-                            onChange={handleChange}
-                        />
-                        {errors.confirmPassword && <p className="text-red-500 text-sm mb-2">{errors.confirmPassword}</p>}
+        <section className="min-h-screen bg-gradient-to-b from-[#CACACA] to-[#A8A8A8] py-8 px-4">
+            <div className="max-w-md mx-auto bg-[#2F424B] rounded-lg shadow-2xl mt-24">
+                <div className="p-5">
+                    <h2 className="text-2xl font-bold text-center text-[#EDF5FC] mb-1">Create Account</h2>
+                    <div className="text-center text-[#EDF5FC]/80 space-y-0.5 mb-4">
+                        <p className="text-sm">As</p>
+                        <p className="text-lg font-semibold">Customer</p>
                     </div>
 
-                    <div>
-                        <label htmlFor="firstName" className="block text-xl">First Name :</label>
-                        <input
-                            type="text"
-                            id="firstName"
-                            name="firstName"
-                            className={`w-full p-2 mt-2 mb-1 text-black rounded ${errors.firstName ? 'border-2 border-red-500' : ''}`}
-                            value={formData.firstName}
-                            onChange={handleChange}
-                        />
-                        {errors.firstName && <p className="text-red-500 text-sm mb-2">{errors.firstName}</p>}
+                    {emailExists && (
+                                notifyError('This email is already registered. Please use a different email or login to your existing account.')
+                    )}
 
-                        <label htmlFor="surname" className="block text-xl">Surname :</label>
-                        <input
-                            type="text"
-                            id="surname"
-                            name="surname"
-                            className={`w-full p-2 mt-2 mb-1 text-black rounded ${errors.surname ? 'border-2 border-red-500' : ''}`}
-                            value={formData.surname}
-                            onChange={handleChange}
-                        />
-                        {errors.surname && <p className="text-red-500 text-sm mb-2">{errors.surname}</p>}
+                    {errors.submit && (
+                       notifyError('errors.submit')
+                    )}
 
-                        <label htmlFor="contact" className="block text-xl">Contact # :</label>
-                        <input
-                            type="text"
-                            id="contact"
-                            name="contact"
-                            className={`w-full p-2 mt-2 mb-1 text-black rounded ${errors.contact ? 'border-2 border-red-500' : ''}`}
-                            value={formData.contact}
-                            onChange={handleChange}
-                            placeholder="09XXXXXXXXX or +639XXXXXXXXX"
-                        />
-                        {errors.contact && <p className="text-red-500 text-sm mb-2">{errors.contact}</p>}
+                    <form className="space-y-3" onSubmit={handleRegister}>
+                        <div>
+                            <label htmlFor="email" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Email</label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.email ? 'border-red-500' : ''}`}
+                                value={formData.email}
+                                onChange={handleChange}
+                            />
+                            {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
+                        </div>
 
-                        <label htmlFor="address" className="block text-xl">Address :</label>
-                        <input
-                            type="text"
-                            id="address"
-                            name="address"
-                            className={`w-full p-2 mt-2 mb-1 text-black rounded ${errors.address ? 'border-2 border-red-500' : ''}`}
-                            value={formData.address}
-                            onChange={handleChange}
-                        />
-                        {errors.address && <p className="text-red-500 text-sm mb-2">{errors.address}</p>}
-                    </div>
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Password</label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    id="password"
+                                    name="password"
+                                    className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={togglePasswordVisibility}
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#EDF5FC]/60 hover:text-[#EDF5FC]/80 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                                {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
+                            </div>
+                        </div>
 
-                    <div className="text-center col-span-2">
-                        <button type="submit" className="px-8 py-3 text-xl bg-[#37474F] rounded-full hover:bg-[#2F424B]">Sign Up</button>
-                    </div>
+                        <div>
+                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Confirm Password</label>
+                            <div className="relative">
+                                <input
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    id="confirmPassword"
+                                    name="confirmPassword"
+                                    className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={toggleConfirmPasswordVisibility}
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#EDF5FC]/60 hover:text-[#EDF5FC]/80 transition-colors"
+                                >
+                                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                                {errors.confirmPassword && <p className="text-red-400 text-xs mt-1">{errors.confirmPassword}</p>}
+                            </div>
+                        </div>
 
-                    <p className="text-center col-span-2">Already have an account? <Link to="/login" className="text-[#4FBDBA] hover:underline">Login</Link></p>
-                </form>
+                        <div>
+                            <label htmlFor="firstName" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">First Name</label>
+                            <input
+                                type="text"
+                                id="firstName"
+                                name="firstName"
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.firstName ? 'border-red-500' : ''}`}
+                                value={formData.firstName}
+                                onChange={handleChange}
+                            />
+                            {errors.firstName && <p className="text-red-400 text-xs mt-1">{errors.firstName}</p>}
+                        </div>
+
+                        <div>
+                            <label htmlFor="surname" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Surname</label>
+                            <input
+                                type="text"
+                                id="surname"
+                                name="surname"
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.surname ? 'border-red-500' : ''}`}
+                                value={formData.surname}
+                                onChange={handleChange}
+                            />
+                            {errors.surname && <p className="text-red-400 text-xs mt-1">{errors.surname}</p>}
+                        </div>
+
+                        <div>
+                            <label htmlFor="contact" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Contact #</label>
+                            <input
+                                type="text"
+                                id="contact"
+                                name="contact"
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.contact ? 'border-red-500' : ''}`}
+                                value={formData.contact}
+                                onChange={handleChange}
+                                placeholder="09XXXXXXXXX or +639XXXXXXXXX"
+                            />
+                            {errors.contact && <p className="text-red-400 text-xs mt-1">{errors.contact}</p>}
+                        </div>
+
+                        <div>
+                            <label htmlFor="address" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Address</label>
+                            <input
+                                type="text"
+                                id="address"
+                                name="address"
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.address ? 'border-red-500' : ''}`}
+                                value={formData.address}
+                                onChange={handleChange}
+                            />
+                            {errors.address && <p className="text-red-400 text-xs mt-1">{errors.address}</p>}
+                        </div>
+
+                        <div className="pt-2 pb-1 space-y-3">
+                            <button 
+                                type="submit" 
+                                className="w-full px-4 py-2 bg-[#4FBDBA] text-white rounded-md hover:bg-[#4FBDBA]/90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4FBDBA] focus:ring-offset-1 focus:ring-offset-[#2F424B]"
+                            >
+                                Sign Up
+                            </button>
+                            <p className="text-[#EDF5FC]/80 text-sm text-center">
+                                Already have an account?{' '}
+                                <Link to="/login" className="text-[#4FBDBA] hover:text-[#4FBDBA]/80 transition-colors">
+                                    Login
+                                </Link>
+                            </p>
+                        </div>
+                    </form>
+                </div>
             </div>
         </section>
     );

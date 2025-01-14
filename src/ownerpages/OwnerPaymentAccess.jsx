@@ -5,6 +5,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import OwnerHeader from "../components/OwnerHeader.jsx";
 import OwnerSideBar from "../components/OwnerSideBar.jsx";
+import { notifyError, notifySuccess, notifyWarning } from "../general/CustomToast.js";
 
 function OwnerPaymentAccess() {
     const [gcashImage, setGcashImage] = useState(null);
@@ -31,10 +32,10 @@ function OwnerPaymentAccess() {
                     setGcashAccounts(paymentData.gcashAccounts || [{ name: "", accountNumber: "" }]);
                     setBpiAccount(paymentData.bpiAccount || { name: "", accountNumber: "" });
                 } else {
-                    console.log("No payment data found.");
+                    notifyWarning("No payment data found.");
                 }
             } catch (error) {
-                console.error("Error fetching payment data:", error);
+                notifyError("Error fetching payment data:", error);
             }
         };
         fetchPaymentData();
@@ -49,7 +50,7 @@ function OwnerPaymentAccess() {
                 const imageUrl = await getDownloadURL(storageRef);
                 setGcashImage(imageUrl);
             } catch (error) {
-                console.error("Error uploading GCash QR image:", error);
+                notifyError("Error uploading GCash QR image:", error);
             }
         }
     };
@@ -60,7 +61,7 @@ function OwnerPaymentAccess() {
             await deleteObject(storageRef);
             setGcashImage(null);
         } catch (error) {
-            console.error("Error removing GCash QR image:", error);
+            notifyError("Error removing GCash QR image:", error);
         }
     };
 
@@ -86,9 +87,9 @@ function OwnerPaymentAccess() {
         };
         try {
             await setDoc(doc(firestore, "payments", "paymentMethods"), paymentData);
-            alert("Payment information saved successfully.");
+            notifySuccess("Payment information saved successfully.");
         } catch (error) {
-            console.error("Error saving payment information:", error);
+            notifyError("Error saving payment information:", error);
         }
     };
 
@@ -107,51 +108,6 @@ function OwnerPaymentAccess() {
             <OwnerHeader />
             <OwnerSideBar />
             <main className="ml-64 p-8 mt-16">
-                <div className="w-[700px] bg-[#DADADA] shadow-lg rounded-md p-8">
-                    <span className="text-4xl text-[#2F424B] font-semibold mb-6 block">Order Summary</span>
-                    <div className="mb-6">
-                        <p className="text-xl font-medium text-gray-700 mb-2">Preview:</p>
-                        <label className="text-lg text-gray-700 font-medium block">Item Type:</label>
-                        <select
-                            value={selectedItem}
-                            onChange={handleItemChange}
-                            className="mt-2 p-3 text-gray-800 bg-gray-100 rounded-md border border-gray-300 text-lg"
-                        >
-                            {itemTypes.map((item) => (
-                                <option key={item.value} value={item.value}>
-                                    {item.label}
-                                </option>
-                            ))}
-                        </select>
-    
-                        <label className="text-lg text-gray-700 font-medium mt-4 block">Payment Type:</label>
-                        <select
-                            name="PaymentType"
-                            value={paymentType}
-                            onChange={handlePaymentTypeChange}
-                            className="mt-2 p-3 text-gray-800 bg-gray-100 rounded-md border border-gray-300 text-lg"
-                        >
-                            <option value="Partial">Partial</option>
-                            <option value="FullPayment">Full Payment</option>
-                        </select>
-                        <p className="text-lg font-medium text-gray-700 mt-4">Cost: <span className="text-gray-800">₱{cost}</span></p>
-                    </div>
-                    
-                    <div className="flex justify-end mt-6 space-x-4">
-                        <button 
-                            onClick={() => {/* Add your reject logic here */}}
-                            className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200"
-                        >
-                            Reject
-                        </button>
-                        <button 
-                            onClick={() => {/* Add your accept logic here */}}
-                            className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
-                        >
-                            Accept
-                        </button>
-                    </div>
-                </div>
 
                 <span className="text-4xl text-[#2F424B] font-semibold mb-4 block mt-10">Manage Payment Methods</span>
 

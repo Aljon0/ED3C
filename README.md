@@ -70,27 +70,3 @@ Clients often struggle with visualizing memorial designs, leading to time-consum
    ```bash
    npm run dev
    ```
-
-## Configuration
-
-[Add any specific configuration steps or environment variable setup]
-
-## Deployment
-
-[Provide instructions for deploying the application]
-
-## Contributing
-
-[Add guidelines for contributing to the project]
-
-## License
-
-[Specify the license for your project]
-
-## Contact
-
-[Add contact information or support details]
-
-## Acknowledgments
-
-[Optional: Mention any libraries, resources, or people you want to thank]

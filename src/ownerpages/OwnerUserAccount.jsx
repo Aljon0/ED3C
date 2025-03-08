@@ -2,18 +2,19 @@ import { useState, useEffect } from "react";
 import OwnerHeader from "../components/OwnerHeader.jsx";
 import OwnerSideBar from "../components/OwnerSideBar.jsx";
 import { collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
-import { db } from "../firebase"; // Assuming firebase.js exports db for Firestore
-import { sendBanNotificationEmail } from "/utils/emailService"; // Assuming a utility to send emails
+import { db } from "../firebase";
+import { sendAccountEmail } from "../utils/emailservice.js";
 import { useAuth } from "../components/AuthContext";
 import { notifyError, notifySuccess, notifyWarning } from "../general/CustomToast.js";
+import SearchBar from "../components/SearchBar.jsx";
 
 function OwnerUserAccount() {
-  const { currentUser } = useAuth(); // Get the current authenticated user
-  const [searchTerm, setSearchTerm] = useState("");
+  const { currentUser } = useAuth();
   const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentUserData, setCurrentUserData] = useState(null);
 
-  // Fetching current user data (to check if they're the owner)
   useEffect(() => {
     const fetchCurrentUserData = async () => {
       const userDoc = doc(db, "Users", currentUser.uid);
@@ -26,22 +27,20 @@ function OwnerUserAccount() {
     }
   }, [currentUser]);
 
-  // Fetching user data from Firestore
   useEffect(() => {
     const fetchUsers = async () => {
       const usersCollection = collection(db, "Users");
       const userSnapshot = await getDocs(usersCollection);
       const userList = userSnapshot.docs.map((doc) => ({
-        id: doc.id, 
+        id: doc.id,
         ...doc.data(),
       }));
       setUsers(userList);
     };
-    
+
     fetchUsers();
   }, []);
 
-  // Function to handle user ban
   const handleBanUser = async (userId, email) => {
     if (currentUserData?.role !== 'owner') {
       notifyWarning("Only the owner can ban users.");
@@ -49,27 +48,65 @@ function OwnerUserAccount() {
     }
 
     const confirmation = window.confirm("Do you really want to ban this user?");
-    
+
     if (confirmation) {
       try {
-        // Mark user as banned in Firestore
+        // Update Firestore
         await updateDoc(doc(db, "Users", userId), { isBanned: true });
-        
-        // Send email notification to the user
-        await sendBanNotificationEmail(email);
-        
+
+        // Send email notification
+        await sendAccountEmail(email, true);
+
+        // Update local state
+        setUsers(prevUsers =>
+          prevUsers.map(user =>
+            user.id === userId ? { ...user, isBanned: true } : user
+          )
+        );
+
         notifySuccess("User has been banned and notified via email.");
-        setUsers(users.filter(user => user.id !== userId));
       } catch (error) {
-        notifyError("Error banning user: ", error);
+        console.error("Error banning user:", error);
         notifyError("Failed to ban the user. Please try again.");
       }
-    } else {
-      notifySuccess("Ban action cancelled.");
     }
   };
 
-  // Filtering users based on the search term
+  const handleUnbanUser = async (userId, email) => {
+    if (currentUserData?.role !== 'owner') {
+      notifyWarning("Only the owner can unban users.");
+      return;
+    }
+
+    const confirmation = window.confirm("Do you want to unban this user?");
+
+    if (confirmation) {
+      try {
+        // Update Firestore
+        await updateDoc(doc(db, "Users", userId), { isBanned: false });
+
+        // Send email notification
+        await sendAccountEmail(email, false);
+
+        // Update local state
+        setUsers(prevUsers =>
+          prevUsers.map(user =>
+            user.id === userId ? { ...user, isBanned: false } : user
+          )
+        );
+
+        notifySuccess("User has been unbanned successfully.");
+      } catch (error) {
+        console.error("Error unbanning user:", error);
+        notifyError("Failed to unban the user. Please try again.");
+      }
+    }
+  };
+
+  const handleSearch = (query) => {
+    setSearchQuery(query.toLowerCase());
+  };
+
   const filteredUsers = users.filter((user) => {
     const fullName = `${user.firstName || ""} ${user.surname || ""}`.toLowerCase();
     return (
@@ -83,50 +120,102 @@ function OwnerUserAccount() {
       <OwnerHeader />
       <OwnerSideBar />
       <main className="ml-64 p-8 mt-16">
-        <div className="w-full max-w-7xl bg-[#FAFAFA] rounded-md p-6 overflow-hidden">
-          <span className="text-4xl text-[#2F424B] font-semibold mb-4 block">CUSTOMERS ACCOUNT</span>
+        <div className="w-full bg-[#D3D3D3] rounded-md p-6">
+          <div className="w-full max-w-7xl space-y-6">
+            {/* Header and Search Section */}
+            <div className="flex flex-col gap-4">
+              <h1 className="text-4xl font-bold text-[#2F424B] tracking-tight">
+                Customers Account
+              </h1>
 
-          {/* Search Bar */}
-          <div className="rounded-full bg-[#FAFAFA] border-solid border-slate-400 border-2 flex w-full max-w-md mb-4">
-            <input
-              type="text"
-              placeholder="Search Names here..."
-              className="rounded-full p-2 bg-[#FAFAFA] flex-grow"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <img src="/assets/heroicons--magnifying-glass-16-solid.svg" className="ml-2" />
-          </div>
+              <SearchBar onSearch={handleSearch} />
+            </div>
 
-          {/* Table for Customer Details */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">EMAIL</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">FIRST NAME</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">SURNAME</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">CONTACT#</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">ADDRESS</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-black">{user.email}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.firstName}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.surname}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.contact}</td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-black">{user.address}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/* Table Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">First Name</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Surname</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Contact#</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Address</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredUsers.map((user) => (
+                      <tr
+                        key={user.id}
+                        className="hover:bg-slate-50 transition-colors duration-150"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">
+                          {user.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                          {user.firstName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                          {user.surname}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                          {user.contact}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 max-w-[200px] truncate">
+                          {user.address}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                              ${user.isBanned
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-green-100 text-green-800'
+                              }`}
+                          >
+                            {user.isBanned ? 'Banned' : 'Active'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {user.isBanned ? (
+                            <button
+                              onClick={() => handleUnbanUser(user.id, user.email)}
+                              className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors duration-150"
+                            >
+                              <img
+                                src="/assets/mdi--ban.svg"
+                                className="w-4 h-4 mr-2 transform rotate-45"
+                                alt="Unban icon"
+                              />
+                              Unban
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleBanUser(user.id, user.email)}
+                              className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 transition-colors duration-150"
+                            >
+                              <img
+                                src="/assets/mdi--ban.svg"
+                                className="w-4 h-4 mr-2"
+                                alt="Ban icon"
+                              />
+                              Ban
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </main>
     </>
-  );
+  )
 }
 
-export default OwnerUserAccount;
+export default OwnerUserAccount

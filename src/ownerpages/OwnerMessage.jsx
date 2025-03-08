@@ -11,11 +11,30 @@ import { notifyError } from "../general/CustomToast.js";
 const formatMessageTime = (timestamp) => {
     if (!timestamp) return '';
     const date = timestamp.toDate();
-    return new Intl.DateTimeFormat('en-US', {
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = new Date(now.setDate(now.getDate() - 1)).toDateString() === date.toDateString();
+
+    // Time format
+    const timeStr = new Intl.DateTimeFormat('en-US', {
         hour: 'numeric',
         minute: 'numeric',
         hour12: true
     }).format(date);
+
+    // Date format
+    if (isToday) {
+        return `Today at ${timeStr}`;
+    } else if (isYesterday) {
+        return `Yesterday at ${timeStr}`;
+    } else {
+        const dateStr = new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        }).format(date);
+        return `${dateStr} at ${timeStr}`;
+    }
 };
 
 function OwnerMessage() {
@@ -31,7 +50,7 @@ function OwnerMessage() {
     const [lastMessages, setLastMessages] = useState({});
     const [unreadMessages, setUnreadMessages] = useState({});
     const messageContainerRef = useRef(null);
-    const navigate = useNavigate(); 
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (messageContainerRef.current) {
@@ -43,11 +62,11 @@ function OwnerMessage() {
         if (!currentUser) return;
         const messagesRef = collection(db, "Messages");
         const q = query(messagesRef, where("ownerID", "==", currentUser.uid));
-        
+
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const usersSet = new Set();
             const usersList = [];
-            
+
             for (const docSnapshot of snapshot.docs) {
                 const { customerID } = docSnapshot.data();
                 if (customerID && !usersSet.has(customerID)) {
@@ -64,7 +83,7 @@ function OwnerMessage() {
                 }
             }
             setUsers(usersList);
-            
+
             if (userId) {
                 const selectedUserData = usersList.find(user => user.id === userId);
                 if (selectedUserData) {
@@ -72,7 +91,7 @@ function OwnerMessage() {
                 }
             }
         });
-        
+
         return () => unsubscribe();
     }, [currentUser, userId]);
 
@@ -82,7 +101,7 @@ function OwnerMessage() {
 
         if (currentUser) {
             const conversationID = `${currentUser.uid}_${user.id}`;
-            
+
             setUnreadMessages(prev => {
                 const newUnread = { ...prev };
                 delete newUnread[user.id];
@@ -140,7 +159,7 @@ function OwnerMessage() {
                 ...customerMessages
             ];
 
-            const sortedMessages = allMessages.sort((a, b) => 
+            const sortedMessages = allMessages.sort((a, b) =>
                 (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)
             );
             setMessages(sortedMessages);
@@ -158,7 +177,7 @@ function OwnerMessage() {
                 ...ownerMessages
             ];
 
-            const sortedMessages = allMessages.sort((a, b) => 
+            const sortedMessages = allMessages.sort((a, b) =>
                 (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)
             );
             setMessages(sortedMessages);
@@ -179,7 +198,7 @@ function OwnerMessage() {
 
             const messageData = {
                 message: message.trim(),
-                sender: "owner", 
+                sender: "owner",
                 timestamp: new Date(),
                 customerID: selectedUser.id,
                 ownerID: currentUser.uid
@@ -196,14 +215,14 @@ function OwnerMessage() {
             }
 
             await addDoc(collection(
-                db, 
-                "Messages", 
-                conversationID, 
+                db,
+                "Messages",
+                conversationID,
                 "ownerMessages"
             ), messageData);
-            
+
             setMessage("");
-            
+
             setTimeout(() => {
                 if (messageContainerRef.current) {
                     messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
@@ -244,7 +263,7 @@ function OwnerMessage() {
             }
 
             await addDoc(collection(db, "Messages", conversationID, "ownerMessages"), messageData);
-            
+
             setTimeout(() => {
                 if (messageContainerRef.current) {
                     messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
@@ -345,8 +364,8 @@ function OwnerMessage() {
         <>
             <OwnerHeader />
             <OwnerSideBar />
-            <main className="ml-64 p-8 mt-16 flex">
-                <div className="w-[400px] h-[500px] bg-[#2F424B] rounded-md p-4 overflow-y-auto">
+            <main className="ml-64 p-8 mt-16 flex h-[calc(120vh-200px)]">
+                <div className="w-full bg-[#2F424B] rounded-md p-4 overflow-y-auto">
                     <input
                         type="text"
                         placeholder="Search users..."
@@ -362,7 +381,6 @@ function OwnerMessage() {
                                     (user.surname && user.surname.toLowerCase().includes(searchQuery.toLowerCase()))
                             )
                             .sort((a, b) => {
-                                // Sort by last message timestamp, most recent first
                                 const timeA = lastMessages[a.id]?.timestamp?.toMillis() || 0;
                                 const timeB = lastMessages[b.id]?.timestamp?.toMillis() || 0;
                                 return timeB - timeA;
@@ -370,19 +388,21 @@ function OwnerMessage() {
                             .map((user) => (
                                 <div
                                     key={user.id}
-                                    className={`flex flex-col m-2 cursor-pointer rounded-md p-2 transition-colors duration-300 ${
-                                        selectedUser?.id === user.id ? 'bg-[#576c75]' : 'hover:bg-[#37474F]'
-                                    }`}
+                                    className={`flex flex-col m-2 cursor-pointer rounded-md p-2 transition-colors duration-300 ${selectedUser?.id === user.id ? 'bg-[#576c75]' : 'hover:bg-[#37474F]'
+                                        }`}
                                     onClick={() => handleUserSelect(user)}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center">
                                             <div className="relative">
-                                                <img
-                                                    src={user.imageUrl || "/assets/mingcute--user-4-line.svg"}
-                                                    alt={user.firstname}
-                                                    className="rounded-full w-16 h-16"
-                                                />
+                                                {/* Updated image container styling */}
+                                                <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
+                                                    <img
+                                                        src={user.imageUrl || "/assets/mingcute--user-4-line.svg"}
+                                                        alt={user.firstname}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
                                                 {unreadMessages[user.id] && (
                                                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                                                         {unreadMessages[user.id]}
@@ -413,109 +433,110 @@ function OwnerMessage() {
                     )}
                 </div>
 
-                    <div className="w-[650px] h-[500px] bg-[#DADADA] flex flex-col justify-between rounded-lg shadow-lg ml-4">
-                        {selectedUser ? (
-                            <>
-                                <div className="w-full flex items-center justify-between p-4 bg-[#2F424B] text-white rounded-t-lg">
-                                    <div className="flex items-center">
+                <div className="w-full bg-[#DADADA] flex flex-col rounded-lg shadow-lg ml-4">
+                    {selectedUser ? (
+                        <>
+                            <div className="w-full flex items-center justify-between p-4 bg-[#2F424B] text-white rounded-t-lg">
+                                <div className="flex items-center">
+                                    {/* Updated selected user image styling */}
+                                    <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 mr-4">
                                         <img
                                             src={selectedUser.imageUrl || "/assets/mingcute--user-4-line.svg"}
                                             alt={selectedUser.firstName}
-                                            className="rounded-full w-12 h-12 mr-4"
+                                            className="w-full h-full object-cover"
                                         />
-                                        <h2 className="text-xl font-semibold">
-                                            {selectedUser.firstName} {selectedUser.surname}
-                                        </h2>
                                     </div>
+                                    <h2 className="text-xl font-semibold">
+                                        {selectedUser.firstName} {selectedUser.surname}
+                                    </h2>
                                 </div>
+                            </div>
 
-                                <div
-                                    ref={messageContainerRef}
-                                    className="flex-grow overflow-y-auto mb-4 space-y-4 bg-[#DADADA] rounded-b-lg p-4"
-                                    style={{ scrollBehavior: 'smooth' }} // Add smooth scrolling
-                                >
-                                    {messages.map((msg, idx) => (
-                                        <div
-                                            key={msg.id}
-                                            className={`flex ${msg.senderType === "owner" ? "justify-end" : ""}`}
-                                        >
-                                            <div className="flex flex-col">
-                                                <div
-                                                    className={`p-3 rounded-lg max-w-xs ${
-                                                        msg.senderType === "owner" ? "bg-[#37474F] text-white" : "bg-white text-black"
+                            <div
+                                ref={messageContainerRef}
+                                className="flex-1 overflow-y-auto mb-4 space-y-4 bg-[#DADADA] p-4"
+                                style={{ scrollBehavior: 'smooth' }}
+                            >
+                                {messages.map((msg, idx) => (
+                                    <div
+                                        key={msg.id}
+                                        className={`flex ${msg.senderType === "owner" ? "justify-end" : ""}`}
+                                    >
+                                        <div className="flex flex-col">
+                                            <div
+                                                className={`p-3 rounded-lg max-w-xs ${msg.senderType === "owner" ? "bg-[#37474F] text-white" : "bg-white text-black"
                                                     }`}
-                                                >
-                                                    {msg.imageUrl ? (
-                                                        <img
-                                                            src={msg.imageUrl}
-                                                            alt="Sent image"
-                                                            className="max-w-full rounded-lg cursor-pointer"
-                                                            onClick={() => openModal(msg.imageUrl)}
-                                                        />
-                                                    ) : (
-                                                        <p>{msg.message}</p>
-                                                    )}
-                                                </div>
-                                                <span className={`text-xs mt-1 ${
-                                                    msg.senderType === "owner" ? "text-right" : "text-left"
-                                                } text-gray-600`}>
-                                                    {formatMessageTime(msg.timestamp)}
-                                                </span>
+                                            >
+                                                {msg.imageUrl ? (
+                                                    <img
+                                                        src={msg.imageUrl}
+                                                        alt="Sent image"
+                                                        className="max-w-full rounded-lg cursor-pointer"
+                                                        onClick={() => openModal(msg.imageUrl)}
+                                                    />
+                                                ) : (
+                                                    <p>{msg.message}</p>
+                                                )}
                                             </div>
+                                            <span className={`text-xs mt-1 ${msg.senderType === "owner" ? "text-right" : "text-left"
+                                                } text-gray-600`}>
+                                                {formatMessageTime(msg.timestamp)}
+                                            </span>
                                         </div>
-                                    ))}
-                                </div>
-                            
-                                
+                                    </div>
+                                ))}
+                            </div>
 
-                                <div className="flex items-center p-4 bg-[#DADADA] rounded-lg shadow-md">
-                                    <img
-                                        src="/assets/uil--image-plus.svg"
-                                        className="w-[40px] h-[40px] mr-2 cursor-pointer"
-                                        alt="Image Icon"
-                                        onClick={() => document.getElementById("imageInput").click()}
-                                    />
-                                    <input
-                                        type="file"
-                                        id="imageInput"
-                                        onChange={handleImageUpload}
-                                        style={{ display: "none" }}
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Type a message..."
-                                        value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
-                                        onKeyPress={handleKeyPress}
-                                        className="w-full bg-white rounded-lg p-3"
-                                    />
-                                    <img
-                                        src="/assets/wpf--sent.svg"
-                                        className="w-[30px] h-[30px] ml-3 cursor-pointer"
-                                        alt="Send"
-                                        onClick={handleSendMessage}
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            <p className="text-gray-500 text-center m-auto">Select a user to start messaging</p>
-                        )}
-                    </div>
+
+
+                            <div className="flex items-center p-4 bg-[#DADADA] rounded-lg shadow-md">
+                                <img
+                                    src="/assets/uil--image-plus.svg"
+                                    className="w-[40px] h-[40px] mr-2 cursor-pointer"
+                                    alt="Image Icon"
+                                    onClick={() => document.getElementById("imageInput").click()}
+                                />
+                                <input
+                                    type="file"
+                                    id="imageInput"
+                                    onChange={handleImageUpload}
+                                    style={{ display: "none" }}
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Type a message..."
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    className="w-full bg-white rounded-lg p-3"
+                                />
+                                <img
+                                    src="/assets/wpf--sent.svg"
+                                    className="w-[30px] h-[30px] ml-3 cursor-pointer"
+                                    alt="Send"
+                                    onClick={handleSendMessage}
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        <p className="text-gray-500 text-center m-auto">Select a user to start messaging</p>
+                    )}
+                </div>
             </main>
 
             {/* Modal for viewing images */}
             {isModalOpen && (
-                <div 
+                <div
                     className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-[100]"
                     onClick={closeModal} // Close on background click
                 >
-                    <div 
+                    <div
                         className="relative max-w-[90vw] max-h-[90vh]"
                         onClick={e => e.stopPropagation()} // Prevent closing when clicking the image
                     >
-                        <img 
-                            src={selectedImage} 
-                            alt="Full view" 
+                        <img
+                            src={selectedImage}
+                            alt="Full view"
                             className="max-w-full max-h-[90vh] rounded-lg"
                         />
                         <button

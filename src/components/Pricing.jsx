@@ -3,6 +3,7 @@ import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { Save, Loader2, X, Upload, Trash2 } from 'lucide-react';
+import { notifyError, notifySuccess, notifyWarning } from '../general/CustomToast';
 
 function Pricing() {
  const [prices, setPrices] = useState({
@@ -93,9 +94,9 @@ function Pricing() {
       }
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching prices:', error);
+      notifyError('Error fetching prices:', error);
       setLoading(false);
-      showNotification('Error loading prices. Please try again.', 'error');
+      notifyError('Error loading prices. Please try again.', 'error');
     }
   };
 
@@ -123,10 +124,10 @@ function Pricing() {
     setSaving(true);
     try {
       await setDoc(doc(db, 'prices', 'current'), prices);
-      showNotification('Prices updated successfully!', 'success');
+      notifySuccess('Prices/Image updated successfully!', 'success');
     } catch (error) {
-      console.error('Error saving prices:', error);
-      showNotification('Error updating prices. Please try again.', 'error');
+      notifyError('Error saving prices:', error);
+      notifyError('Error updating prices. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -154,8 +155,8 @@ function Pricing() {
         tableSignImages: imagesData
       }));
     } catch (error) {
-      console.error('Error fetching images:', error);
-      showNotification('Error loading images. Please try again.', 'error');
+      notifyError('Error fetching images:', error);
+      notifyError('Error loading images. Please try again.', 'error');
     }
   };
 
@@ -165,13 +166,13 @@ function Pricing() {
 
     // Check file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      showNotification('File size should not exceed 5MB', 'error');
+      notifyWarning('File size should not exceed 5MB', 'error');
       return;
     }
 
     // Check file type
     if (!file.type.startsWith('image/')) {
-      showNotification('Please upload an image file', 'error');
+      notifyWarning('Please upload an image file', 'error');
       return;
     }
 
@@ -195,8 +196,8 @@ function Pricing() {
 
       showNotification('Image uploaded successfully!', 'success');
     } catch (error) {
-      console.error('Error uploading image:', error);
-      showNotification('Error uploading image. Please try again.', 'error');
+      notifyError('Error uploading image:', error);
+      notifyError('Error uploading image. Please try again.', 'error');
     } finally {
       setUploadingImage(false);
     }
@@ -214,21 +215,21 @@ function Pricing() {
         tableSignImages: prev.tableSignImages.filter(img => img.path !== image.path)
       }));
 
-      showNotification('Image deleted successfully!', 'success');
+      notifySuccess('Image deleted successfully!', 'success');
     } catch (error) {
-      console.error('Error deleting image:', error);
-      showNotification('Error deleting image. Please try again.', 'error');
+      notifyError('Error deleting image:', error);
+      notifyError('Error deleting image. Please try again.', 'error');
     }
   };
 
   const renderTableSignImagesSection = () => (
-    <div className="bg-[#263238] backdrop-blur-lg border border-gray-700 rounded-lg overflow-hidden mt-6">
-      <div className="p-4 border-b border-gray-700 bg-[#1C2126]">
+    <div className="bg-[#FAFAFA] backdrop-blur-lg border border-gray-700 rounded-lg overflow-hidden mt-6">
+      <div className="p-4 border-b border-gray-700 bg-[#37474F]">
         <h3 className="text-xl font-semibold text-white">Table Sign Stone Types</h3>
       </div>
       <div className="p-6">
         <div className="mb-6">
-          <label className="flex items-center justify-center w-full h-32 px-4 transition bg-[#263238] border-2 border-gray-300 border-dashed rounded-lg appearance-none cursor-pointer hover:border-gray-400 focus:outline-none">
+          <label className="flex items-center justify-center w-full h-32 px-4 transition bg-[#37474F] border-2 border-gray-300 border-dashed rounded-lg appearance-none cursor-pointer hover:border-gray-400 focus:outline-none">
             <div className="flex flex-col items-center space-y-2">
               <Upload className="w-6 h-6 text-gray-300" />
               <span className="text-sm text-gray-300">
@@ -270,7 +271,7 @@ function Pricing() {
   );
 
   const PriceInput = ({ value, onChange, size }) => (
-    <div className="flex items-center space-x-4 bg-[#1C2126] p-4 rounded-lg">
+    <div className="flex items-center space-x-4 bg-[#37474F] p-4 rounded-lg">
       <label className="text-sm font-medium text-gray-200 w-32 flex-shrink-0">
         {size}:
       </label>
@@ -288,8 +289,8 @@ function Pricing() {
     if (!priceData) return null;
 
     return (
-      <div className="bg-[#263238] backdrop-blur-lg border border-gray-700 rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-gray-700 bg-[#1C2126]">
+      <div className="bg-[#FAFAFA] backdrop-blur-lg border border-gray-700 rounded-lg overflow-hidden">
+        <div className="p-4 border-b border-gray-700 bg-[#37474F]">
           <h3 className="text-xl font-semibold text-white">{title}</h3>
         </div>
         <div className="p-6">
@@ -312,14 +313,14 @@ function Pricing() {
     if (!data) return null;
 
     return (
-      <div className="bg-[#263238] backdrop-blur-lg border border-gray-700 rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-gray-700 bg-[#1C2126]">
+      <div className="bg-[#FAFAFA] backdrop-blur-lg border border-gray-700 rounded-lg overflow-hidden">
+        <div className="p-4 border-b border-gray-700 bg-[#37474F]">
           <h3 className="text-xl font-semibold text-white">{title}</h3>
         </div>
         <div className="p-6 space-y-8">
           {Object.entries(data).map(([subCategory, prices]) => (
             <div key={subCategory}>
-              <h4 className="text-lg font-medium text-white mb-4 pl-2 border-l-4 border-blue-500">
+              <h4 className="text-lg font-medium text-[#37474F] mb-4 pl-2 border-l-4 border-blue-500">
                 {subCategory}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -348,31 +349,23 @@ function Pricing() {
   }
 
   return (
-    <main className="p-8 mt-16 min-h-screen bg-[#37474F] rounded">
+    <main className="p-8 mt-16 min-h-screen bg-[#D3D3D3] rounded">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-white">Price Management</h2>
+          <h2 className="text-2xl font-bold text-[#37474F]">Price Management</h2>
           <button
             onClick={savePrices}
             disabled={saving}
-            className="flex items-center px-4 py-2 bg-white text-black rounded-lg"
+            className="flex items-center px-4 py-2 bg-[#37474F] hover:bg-[#1C2126] hover:text-white text-white rounded-lg"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
               <Save className="h-4 w-4 mr-2" />
             )}
-            {saving ? 'Saving...' : 'Save All Prices'}
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
-
-        {notification.show && (
-          <div className={`p-4 rounded-lg ${
-            notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-          } text-white mb-6`}>
-            {notification.message}
-          </div>
-        )}
 
         <div className="grid gap-6">
           {renderPriceSection('Standard Gravestone Prices', 'standardGravestone', prices.standardGravestone)}

@@ -5,6 +5,7 @@ import OwnerHeader from "../components/OwnerHeader.jsx";
 import OwnerSideBar from "../components/OwnerSideBar.jsx";
 import SearchBar from "../components/SearchBar.jsx";
 import GenerateReports from "../components/GenerateReports.jsx";
+import IncomeAndSupplies from "../components/IncomeAndSupplies.jsx";
 
 function Reports() {
     const [transactions, setTransactions] = useState([]);
@@ -23,7 +24,7 @@ function Reports() {
         const unsubscribe = onSnapshot(transactionsQuery, (snapshot) => {
             const transactionsData = snapshot.docs.map(doc => {
                 const data = doc.data();
-                
+
                 const convertTimestamp = (timestamp) => {
                     if (!timestamp) return null;
                     if (timestamp.toDate && typeof timestamp.toDate === 'function') {
@@ -87,7 +88,7 @@ function Reports() {
     };
 
     const getStatusColor = (status) => {
-        switch(status) {
+        switch (status) {
             case 'Finished':
                 return 'text-green-600';
             case 'Cancelled':
@@ -100,8 +101,8 @@ function Reports() {
     const formatDate = (date) => {
         if (!date) return 'Not Available';
         try {
-            return date instanceof Date ? 
-                date.toLocaleString() : 
+            return date instanceof Date ?
+                date.toLocaleString() :
                 new Date(date).toLocaleString();
         } catch (error) {
             console.error("Error formatting date:", error);
@@ -117,7 +118,7 @@ function Reports() {
         if (!transaction.addOns || !Array.isArray(transaction.addOns) || transaction.addOns.length === 0) {
             return <div>No Add-ons</div>;
         }
-    
+
         return transaction.addOns.map((addon, index) => {
             switch (addon) {
                 case "Picture Frame":
@@ -125,9 +126,9 @@ function Reports() {
                         <div key={`addon-${index}`} className="space-y-2">
                             <p>Picture Frame ({transaction.pictureFrameSize || 'Size not specified'})</p>
                             {transaction.pictureFrameImage && (
-                                <img 
-                                    src={transaction.pictureFrameImage} 
-                                    alt="Picture Frame" 
+                                <img
+                                    src={transaction.pictureFrameImage}
+                                    alt="Picture Frame"
                                     className="max-w-[200px] h-auto rounded-md shadow-sm"
                                 />
                             )}
@@ -153,7 +154,7 @@ function Reports() {
 
     const filterTransactions = (transaction) => {
         const nameMatch = transaction.customerName.toLowerCase().includes(searchQuery);
-        
+
         switch (statusFilter) {
             case "ALL":
                 return nameMatch;
@@ -168,11 +169,10 @@ function Reports() {
     const StatusFilterButton = ({ status, currentFilter, onClick }) => (
         <button
             onClick={() => onClick(status)}
-            className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                currentFilter === status
+            className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${currentFilter === status
                     ? 'bg-[#2F424B] text-white'
                     : 'bg-white text-[#2F424B] hover:bg-gray-100'
-            } border border-[#2F424B]`}
+                } border border-[#2F424B]`}
         >
             <img src="/assets/openmoji--sort.svg" alt="sort" className="w-4 h-4 mr-2" />
             {status}
@@ -184,33 +184,35 @@ function Reports() {
             <OwnerHeader />
             <OwnerSideBar />
             <main className="p-8 ml-64 mt-16">
-                <div className="w-[950px] min-h-[670px] bg-[#FAFAFA] rounded-md p-6">
+                <IncomeAndSupplies />
+                <div className="w-full min-h-[670px] bg-[#D3D3D3] rounded-md p-6">
+
                     <div className="flex items-center mb-4">
                         <span className="text-4xl text-[#2F424B] font-semibold">Transaction History</span>
-                        <GenerateReports transactions={transactions}/>
+                        <GenerateReports transactions={transactions} />
                     </div>
 
                     {/* Status Filter Buttons */}
                     <div className="flex gap-4 mb-4">
-                        <StatusFilterButton 
-                            status="ALL" 
-                            currentFilter={statusFilter} 
+                        <StatusFilterButton
+                            status="ALL"
+                            currentFilter={statusFilter}
                             onClick={setStatusFilter}
                         />
-                        <StatusFilterButton 
-                            status="Finished" 
-                            currentFilter={statusFilter} 
+                        <StatusFilterButton
+                            status="Finished"
+                            currentFilter={statusFilter}
                             onClick={setStatusFilter}
                         />
-                        <StatusFilterButton 
-                            status="Cancelled" 
-                            currentFilter={statusFilter} 
+                        <StatusFilterButton
+                            status="Cancelled"
+                            currentFilter={statusFilter}
                             onClick={setStatusFilter}
                         />
                     </div>
-                    
+
                     <SearchBar onSearch={handleSearch} />
-                    
+
                     <div className="max-h-[500px] overflow-y-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-100 sticky top-0">
@@ -226,31 +228,31 @@ function Reports() {
                                 {transactions
                                     .filter(filterTransactions)
                                     .map((transaction) => (
-                                    <tr key={transaction.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {transaction.customerName}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {formatDate(transaction.dateOrdered)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span className={getStatusColor(transaction.status)}>
-                                                {transaction.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {formatDate(transaction.completedDate)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm flex items-center space-x-4">
-                                            <img
-                                                src="/assets/mdi--eye.svg"
-                                                alt="View"
-                                                className="w-5 h-5 cursor-pointer"
-                                                onClick={() => handleViewTransaction(transaction)}
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
+                                        <tr key={transaction.id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                {transaction.customerName}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {formatDate(transaction.dateOrdered)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <span className={getStatusColor(transaction.status)}>
+                                                    {transaction.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {formatDate(transaction.completedDate)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm flex items-center space-x-4">
+                                                <img
+                                                    src="/assets/mdi--eye.svg"
+                                                    alt="View"
+                                                    className="w-5 h-5 cursor-pointer"
+                                                    onClick={() => handleViewTransaction(transaction)}
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
                             </tbody>
                         </table>
                     </div>
@@ -270,15 +272,15 @@ function Reports() {
                                 onClick={() => setIsModalOpen(false)}
                             />
                         </div>
-                
+
                         <div className="p-6 space-y-4 overflow-y-auto flex-grow">
                             <div className="grid grid-cols-2 gap-4">
                                 {selectedTransaction.sceneImage && (
                                     <div className="col-span-2 mb-6">
                                         <p className="text-sm font-medium text-gray-700 mb-2">Design Preview</p>
-                                        <img 
+                                        <img
                                             src={selectedTransaction.sceneImage}
-                                            alt="Design Preview" 
+                                            alt="Design Preview"
                                             className="w-full max-w-md h-auto rounded-lg shadow-sm mx-auto"
                                         />
                                     </div>
@@ -329,8 +331,8 @@ function Reports() {
                                         <p className="text-sm font-medium text-gray-500">Selected Design</p>
                                         <div className="mt-2">
                                             <p className="text-lg mb-2">{selectedTransaction.design.name}</p>
-                                            <img 
-                                                src={selectedTransaction.design.url} 
+                                            <img
+                                                src={selectedTransaction.design.url}
                                                 alt={selectedTransaction.design.name}
                                                 className="max-w-[300px] h-auto rounded-lg shadow-sm"
                                             />
@@ -364,14 +366,14 @@ function Reports() {
                                     <p className="text-lg">{formatCurrency(selectedTransaction.totalAmount)}</p>
                                 </div>
                             </div>
-                            
+
                             {/* First Receipt */}
                             {selectedTransaction.receiptImage && (
                                 <div className="mt-6">
                                     <p className="text-sm font-medium text-gray-700 mb-2">First Payment Receipt</p>
-                                    <img 
-                                        src={selectedTransaction.receiptImage} 
-                                        alt="First Payment Receipt" 
+                                    <img
+                                        src={selectedTransaction.receiptImage}
+                                        alt="First Payment Receipt"
                                         className="max-w-full h-auto rounded-md shadow-sm"
                                     />
                                     <p className="text-sm text-gray-500 mt-1">
@@ -384,9 +386,9 @@ function Reports() {
                             {selectedTransaction.secondReceiptImage && (
                                 <div className="mt-6">
                                     <p className="text-sm font-medium text-gray-700 mb-2">Second Payment Receipt</p>
-                                    <img 
-                                        src={selectedTransaction.secondReceiptImage} 
-                                        alt="Second Payment Receipt" 
+                                    <img
+                                        src={selectedTransaction.secondReceiptImage}
+                                        alt="Second Payment Receipt"
                                         className="max-w-full h-auto rounded-md shadow-sm"
                                     />
                                     <p className="text-sm text-gray-500 mt-1">
@@ -396,7 +398,7 @@ function Reports() {
                             )}
                         </div>
                     </div>
-                </div>            
+                </div>
             )}
         </>
     );

@@ -1,9 +1,9 @@
 import React from 'react';
 import * as XLSX from 'xlsx';
+import { FileSpreadsheet } from 'lucide-react';
 
 function InventoryFile({ materials }) {
   const exportToExcel = () => {
-    // Prepare the data for export
     const exportData = materials.map(item => ({
       'Item Name': item.itemName,
       'Canvases': item.canvases,
@@ -11,27 +11,30 @@ function InventoryFile({ materials }) {
       'Quantity': item.quantity
     }));
 
-    // Create worksheet and workbook
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Inventory");
 
-    // Generate and download the file
     XLSX.writeFile(wb, "inventory_report.xlsx");
   };
 
   return (
     <button
       onClick={exportToExcel}
-      className="absolute top-6 right-6 flex items-center gap-2 text-white hover:bg-[#1C2126] p-2 rounded transition-colors"
+      className="absolute top-6 right-6 flex items-center gap-3 
+        bg-[#37474F] text-white 
+        px-4 py-2 rounded-lg 
+        shadow-md hover:shadow-lg 
+        transition-all duration-300 
+        hover:bg-[#1C2126] 
+        transform hover:scale-105 
+        group"
       title="Export to Excel"
     >
-      <img 
-        src="/assets/vscode-icons--file-type-excel.svg" 
-        alt="Export to Excel" 
-        className="w-6 h-6"
+      <FileSpreadsheet 
+        className="w-6 h-6 text-green-400 group-hover:text-green-300 transition-colors" 
       />
-      <span>Export</span>
+      <span className="font-semibold tracking-wider">Export Inventory</span>
     </button>
   );
 }

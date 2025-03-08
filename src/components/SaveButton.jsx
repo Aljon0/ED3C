@@ -8,7 +8,7 @@ import { useAuth } from '../components/AuthContext';
 
 function SaveButton() {
   const location = useLocation();
-  const { currentUser, userData } = useAuth(); // Use both currentUser and userData
+  const { currentUser, userData } = useAuth(); 
   const isOwner = location.pathname.includes('/owner');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

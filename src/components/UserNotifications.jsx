@@ -1,24 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { notifyError } from '../general/CustomToast';
+
+const formatMessageTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = new Date(now.setDate(now.getDate() - 1)).toDateString() === date.toDateString();
+    
+    // Time format
+    const timeStr = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+    }).format(date);
+    
+    // Date format
+    if (isToday) {
+        return `Today at ${timeStr}`;
+    } else if (isYesterday) {
+        return `Yesterday at ${timeStr}`;
+    } else {
+        const dateStr = new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        }).format(date);
+        return `${dateStr} at ${timeStr}`;
+    }
+};
 
 function UserNotifications() {
     const [notifications, setNotifications] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
     const [hasUnread, setHasUnread] = useState(false);
     const { currentUser } = useAuth();
+    const navigate = useNavigate(); // Initialize navigation
 
     useEffect(() => {
         if (!currentUser) return;
 
-        // Filter notifications for this specific user
         const q = query(
             collection(db, 'notifications'),
             where('recipientType', '==', 'customer'),
-            where('userId', '==', currentUser.uid),
-            //orderBy('timestamp', 'desc')
+            where('userId', '==', currentUser.uid)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -26,18 +55,29 @@ function UserNotifications() {
                 id: doc.id,
                 ...doc.data()
             }));
-            setNotifications(notificationData);
-            setHasUnread(notificationData.some(notif => !notif.read));
+            
+            // Sort notifications by timestamp in descending order
+            const sortedNotifications = notificationData.sort((a, b) => {
+                const timeA = a.timestamp?.toDate().getTime() || 0;
+                const timeB = b.timestamp?.toDate().getTime() || 0;
+                return timeB - timeA;
+            });
+            
+            setNotifications(sortedNotifications);
+            setHasUnread(sortedNotifications.some(notif => !notif.read));
         });
 
         return () => unsubscribe();
     }, [currentUser]);
 
-    const markAsRead = async (notificationId) => {
+    const markAsRead = async (notificationId, orderId) => {
         try {
             await updateDoc(doc(db, 'notifications', notificationId), {
                 read: true
             });
+            
+            // Navigate to the orders page and optionally highlight the specific order
+            navigate('/orders', { state: { highlightOrderId: orderId } });
         } catch (error) {
             notifyError("Error marking notification as read:", error);
         }
@@ -50,6 +90,8 @@ function UserNotifications() {
                 updateDoc(doc(db, 'notifications', notification.id), { read: true })
             );
             await Promise.all(updatePromises);
+            
+        
         } catch (error) {
             notifyError("Error marking all as read:", error);
         }
@@ -60,7 +102,7 @@ function UserNotifications() {
             <div className="relative" onClick={() => setShowNotifications(!showNotifications)}>
                 <img
                     src="/assets/mdi--bell-outline.svg"
-                    className="size-8 cursor-pointer"
+                    className="w-6 h-6 sm:w-8 sm:h-8 md:w-8 md:h-8 cursor-pointer"
                     alt="Notifications"
                 />
                 {hasUnread && (
@@ -98,10 +140,9 @@ function UserNotifications() {
                                     className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
                                         !notification.read ? 'bg-blue-50' : ''
                                     }`}
-                                    onClick={() => markAsRead(notification.id)}
+                                    onClick={() => markAsRead(notification.id, notification.orderId)}
                                 >
                                     <div className="flex items-start gap-3">
-                                        {/* Order Icon */}
                                         <div className="mt-1 p-1 bg-blue-100 rounded">
                                             <svg 
                                                 className="w-4 h-4 text-blue-600" 
@@ -122,7 +163,7 @@ function UserNotifications() {
                                                 {notification.message}
                                             </p>
                                             <p className="text-xs text-gray-500 mt-1">
-                                                {notification.timestamp?.toDate().toLocaleString()}
+                                                {formatMessageTime(notification.timestamp)}
                                             </p>
                                         </div>
                                     </div>

@@ -1,4 +1,3 @@
-// components/TextureLoader.js
 import { useState, useEffect } from "react";
 import * as THREE from "three";
 

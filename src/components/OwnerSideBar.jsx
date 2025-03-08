@@ -42,7 +42,7 @@ function OwnerSideBar() {
                                 src="/assets/ic--outline-design-services.svg"
                                 className="w-6 h-6 mr-2 group-hover:fill-current group-hover:text-white"
                             />
-                            CustomizeDesign
+                            Customize Design
                         </NavLink>
                         <NavLink
                             to="/owner/orders"

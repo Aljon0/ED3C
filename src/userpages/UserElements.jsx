@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import UserHeader from '../components/UserHeader';
 import CategoryDesigns from '../components/CategoryDesigns';
 import { notifyError } from '../general/CustomToast';
 
@@ -27,7 +26,7 @@ function UserElements() {
                         id: container.id,
                         image: container.imageURL,
                         category: container.category,
-                        name: container.name // Include name in transformed data
+                        name: container.name
                     }));
                     setImageContainers(transformedContainers);
                 } else {
@@ -79,67 +78,60 @@ function UserElements() {
 
     const handleDownload = async (imageUrl) => {
         try {
-            // For Firebase Storage, we don't need cache-control headers
-            // as they cause CORS issues
+            // Create a new request with appropriate headers
             const response = await fetch(imageUrl, {
                 method: 'GET',
-                mode: 'cors'
+                headers: {
+                    'Accept': 'image/*'
+                },
+                credentials: 'same-origin'
             });
-    
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-    
-            // Get the blob directly from the response
+
+            // Get the blob
             const blob = await response.blob();
-            
-            // Validate blob
+
             if (blob.size === 0) {
                 throw new Error('Downloaded file is empty');
             }
-    
-            // Create download link
+
+            // Create and trigger download
             const blobUrl = window.URL.createObjectURL(blob);
-            
-            // Extract filename from Firebase URL or create timestamp-based name
-            const urlParts = imageUrl.split('/');
-            const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
-            const timestamp = new Date().getTime();
-            const fileName = decodeURIComponent(originalFileName.split('%2F').pop()) || `gravestone_design_${timestamp}.png`;
-    
+            const filename = imageUrl.split('/').pop().split('?')[0];
+            const decodedFilename = decodeURIComponent(filename);
+
             const link = document.createElement('a');
             link.href = blobUrl;
-            link.download = fileName;
-    
-            // Handle download with proper cleanup
+            link.download = decodedFilename;
             document.body.appendChild(link);
-            
-            return new Promise((resolve, reject) => {
-                try {
-                    link.click();
-                    
-                    // Cleanup after sufficient delay
-                    setTimeout(() => {
-                        window.URL.revokeObjectURL(blobUrl);
-                        document.body.removeChild(link);
-                        resolve();
-                    }, 1000);
-                } catch (error) {
+
+            try {
+                link.click();
+
+                // Cleanup
+                setTimeout(() => {
                     window.URL.revokeObjectURL(blobUrl);
                     document.body.removeChild(link);
-                    reject(error);
-                }
-            });
-    
+                }, 100);
+            } catch (error) {
+                window.URL.revokeObjectURL(blobUrl);
+                document.body.removeChild(link);
+                throw error;
+            }
+
         } catch (error) {
-            console.error('Download failed:', error);
-            notifyError('Failed to download image. Please try right-click and save the image instead.');
+            notifyError('Download failed:', error);
+            notifyError('Failed to download image. Please try right-click and save image instead.');
         }
     };
 
     return (
-        <div className="ml-8 mt-1 flex flex-col mr-4">
-            <div className="relative bg-[#2F424B] w-[700px] h-[500px] rounded mt-[76px] p-4 overflow-y-auto">
+        <div className="bg-[#2F424B] rounded-lg p-4 md:p-6">
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6">Elements</h2>
+            <div className="relative w-full overflow-y-auto max-h-[500px]">
                 <CategoryDesigns
                     categories={categories}
                     selectedCategory={selectedCategory}
@@ -151,12 +143,11 @@ function UserElements() {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
                     </div>
                 ) : (
-                    // Modified grid layout to match the reference
-                    <div className="grid grid-cols-4 gap-6 p-4 mt-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
                         {filteredImages.map((container, index) => (
                             <div
                                 key={container.id}
-                                className="relative w-[150px] h-[100px] bg-[#F1F3F5] rounded cursor-pointer overflow-hidden"
+                                className="relative aspect-video bg-[#F1F3F5] rounded cursor-pointer overflow-hidden group"
                                 onClick={() => setSelectedImageIndex(index)}
                             >
                                 <img
@@ -180,7 +171,7 @@ function UserElements() {
                 )}
             </div>
 
-
+            {/* Modal - keeping the same styling */}
             {selectedImageIndex !== null && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-8">
                     <button

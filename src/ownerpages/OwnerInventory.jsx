@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { Trash2, Edit2, PlusCircle, Search, XCircle } from 'lucide-react';
 import OwnerHeader from "../components/OwnerHeader.jsx";
 import OwnerSideBar from "../components/OwnerSideBar.jsx";
-import { Alert } from "../components/Alert.jsx";
 import { DeletionAlert } from "../components/Alert.jsx";
 import { db } from "../firebase.js";
 import Pricing from "../components/Pricing.jsx";
-import { notifyError, notifySuccess } from "../general/CustomToast.js"
-import Print from "../components/InventoryFile.jsx";
+import { notifyError, notifySuccess, notifyWarning } from "../general/CustomToast.js"
 import InventoryFile from "../components/InventoryFile.jsx";
+import TextureUpload from "../components/TextureUpload.jsx";
 
 function OwnerInventory() {
+  const LOW_STOCK_THRESHOLD = 20;
+  const OUT_OF_STOCK_THRESHOLD = 0;
+
   const [materials, setMaterials] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingItem, setEditingItem] = useState(null);
+  const [alertsShown, setAlertsShown] = useState(false);
   const [newItem, setNewItem] = useState({
     itemName: "",
     canvases: "",
@@ -21,51 +25,49 @@ function OwnerInventory() {
     quantity: 0,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [alert, setAlert] = useState({
+  const [deletionAlert, setDeletionAlert] = useState({
     isOpen: false,
-    message: '',
-    type: 'success'
+    itemToDelete: null
   });
-  const [deletionAlert, setDeletionAlert] = useState({ 
-    isOpen: false, 
-    itemToDelete: null 
-  });
+
+  const getStockStatus = (quantity) => {
+    if (quantity <= OUT_OF_STOCK_THRESHOLD) return 'out-of-stock';
+    if (quantity <= LOW_STOCK_THRESHOLD) return 'low-stock';
+    return 'in-stock';
+  };
 
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "materials"));
+
+        if (querySnapshot.empty) {
+          notifyWarning("No materials found in the database");
+          setMaterials([]);
+          return;
+        }
+
         const fetchedMaterials = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
+
         setMaterials(fetchedMaterials);
+
       } catch (error) {
-        notifyError('Failed to fetch materials.', 'error');
-        notifyError("Error fetching materials: ", error);
+        notifyError(`Failed to fetch materials: ${error.message}`);
+        setMaterials([]);
       }
     };
 
     fetchMaterials();
-  }, []);
-
-  const showAlert = (message, type = 'success') => {
-    setAlert({
-      isOpen: true,
-      message,
-      type
-    });
-  };
-
-  const closeAlert = () => {
-    setAlert({ isOpen: false, message: '', type: 'success' });
-  };
+  }, [alertsShown]); // Add alertsShown as a dependency
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };
 
-  const filteredMaterials = materials.filter(material => 
+  const filteredMaterials = materials.filter(material =>
     material.itemName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -90,23 +92,23 @@ function OwnerInventory() {
 
   const handleAddItem = async (e) => {
     e.preventDefault();
-    
+
     try {
       if (editingItem) {
         const itemDocRef = doc(db, "materials", editingItem.id);
         await updateDoc(itemDocRef, newItem);
 
-        setMaterials((prev) => 
+        setMaterials((prev) =>
           prev.map(item => item.id === editingItem.id ? { ...newItem, id: editingItem.id } : item)
         );
-        
-        notifySuccess('Update Successfully.', 'success');
+
+        notifySuccess('Update Successfully.');
       } else {
         const docRef = await addDoc(collection(db, "materials"), newItem);
-        
+
         setMaterials((prev) => [...prev, { ...newItem, id: docRef.id }]);
-        
-        notifySuccess('Added New Item Successfully.', 'success');
+
+        notifySuccess('Added New Item Successfully.');
       }
 
       setNewItem({
@@ -118,8 +120,24 @@ function OwnerInventory() {
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (error) {
-      notifyError('Failed to add/update item. Please try again.', 'error');
-      notifyError("Error adding/updating item: ", error);
+      notifyError('Failed to add/update item. Please try again.');
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    try {
+      if (deletionAlert.itemToDelete) {
+        await deleteDoc(doc(db, "materials", deletionAlert.itemToDelete));
+
+        setMaterials((prev) =>
+          prev.filter(item => item.id !== deletionAlert.itemToDelete)
+        );
+
+        setDeletionAlert({ isOpen: false, itemToDelete: null });
+        notifySuccess('Item Deleted Successfully.');
+      }
+    } catch (error) {
+      notifyError('Failed to delete item. Please try again.');
     }
   };
 
@@ -130,41 +148,71 @@ function OwnerInventory() {
     });
   };
 
-  const handleDeleteItem = async () => {
-    try {
-      if (deletionAlert.itemToDelete) {
-        await deleteDoc(doc(db, "materials", deletionAlert.itemToDelete));
-        
-        setMaterials((prev) => 
-          prev.filter(item => item.id !== deletionAlert.itemToDelete)
-        );
-        
-        setDeletionAlert({ isOpen: false, itemToDelete: null });
-        notifyError('Item Deleted Successfully.', 'success');
-      }
-    } catch (error) {
-      notifyError('Failed to delete item. Please try again.', 'error');
-      notifyError("Error deleting item: ", error);
-    }
-  };
-
   const handleEditItem = (item) => {
     setEditingItem(item);
     setNewItem({ ...item });
     setIsModalOpen(true);
   };
 
+  {
+    filteredMaterials.map((item) => {
+      const stockStatus = getStockStatus(item.quantity);
+
+      return (
+        <tr
+          key={item.id}
+          className={`
+          border-b border-[#1C2126] hover:bg-[#1C2126] transition-colors
+          ${stockStatus === 'out-of-stock' ? 'bg-red-900 bg-opacity-30' : ''}
+          ${stockStatus === 'low-stock' ? 'bg-yellow-900 bg-opacity-30' : ''}
+        `}
+        >
+          <td className="p-4">{item.itemName}</td>
+          <td className="p-4">{item.canvases}</td>
+          <td className="p-4">{item.sizes}</td>
+          <td className={`p-4 font-bold
+          ${stockStatus === 'out-of-stock' ? 'text-red-500' : ''}
+          ${stockStatus === 'low-stock' ? 'text-yellow-500' : ''}
+        `}>
+            {item.quantity}
+            {stockStatus !== 'in-stock' && (
+              <span className="ml-2 text-xs uppercase">
+                {stockStatus === 'out-of-stock' ? '(Out of Stock)' : '(Low Stock)'}
+              </span>
+            )}
+          </td>
+          <td className="p-4">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleEditItem(item)}
+                className="hover:bg-blue-600 p-1 rounded transition-colors"
+              >
+                <img
+                  src="/assets/basil--edit-solid.svg"
+                  alt="Edit"
+                  className="w-5 h-5"
+                />
+              </button>
+              <button
+                onClick={() => confirmDeleteItem(item.id)}
+                className="hover:bg-red-600 p-1 rounded transition-colors"
+              >
+                <img
+                  src="/assets/bx--trash-white.svg"
+                  alt="Delete"
+                  className="w-5 h-5"
+                />
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    })
+  }
+
   return (
     <>
-      <Alert 
-        type={alert.type} 
-        message={alert.message} 
-        isOpen={alert.isOpen} 
-        onClose={closeAlert}
-        duration={3000}
-      />
-
-      <DeletionAlert 
+      <DeletionAlert
         isOpen={deletionAlert.isOpen}
         onClose={() => setDeletionAlert({ isOpen: false, itemToDelete: null })}
         onConfirm={handleDeleteItem}
@@ -175,36 +223,46 @@ function OwnerInventory() {
       <OwnerHeader />
       <OwnerSideBar />
       <main className="ml-64 p-8 mt-16">
-      <div className="bg-[#37474F] p-6 rounded-lg shadow-lg min-h-[500px] relative">
-        <h1 className="text-4xl font-bold text-white mb-6">MATERIALS INVENTORY</h1>
-        <InventoryFile materials={materials} />
-          
-          <div className="flex justify-between items-center mb-8">
-            <div className="w-60 h-8 bg-white rounded-md flex items-center px-2">
-              <img
-                src="/assets/heroicons--magnifying-glass-16-solid.svg"
-                alt="Search"
-                className="mr-2 w-4 h-4"
-              />
+        <div className="bg-[#D3D3D3] backdrop-blur-lg p-8 rounded-2xl shadow-2xl border border-white/10 min-h-[500px] relative">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-4xl font-extrabold text-[#37474F] bg-clip-text bg-gradient-to-r from-[#37474F] to-gray-600">
+              Materials Inventory
+            </h1>
+            <InventoryFile materials={materials} />
+          </div>
+
+          <div className="flex items-center space-x-4 mb-8">
+            <div className="relative flex-grow">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="text-gray-400 w-5 h-5" />
+              </div>
               <input
                 type="text"
                 placeholder="Search Item Name"
-                className="rounded-md w-full h-full focus:outline-none"
+                className="pl-10 pr-4 py-2 w-[600px] bg-white border border-white/20 rounded-lg text-[#37474F] focus:outline-none focus:ring-2 focus:ring-[#1C2126] transition-all"
                 value={searchTerm}
                 onChange={handleSearch}
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  <XCircle className="text-gray-400 w-5 h-5 hover:text-red-500" />
+                </button>
+              )}
             </div>
 
-            <div
-              className="flex items-center text-white cursor-pointer"
+            <button
               onClick={openAddModal}
+              className="flex items-center bg-[#37474F] text-white px-4 py-2 rounded-lg hover:bg-[#1C2126] group transition-all duration-300 transform hover:scale-105 "
             >
-              <span className="mr-2">Add New Item</span>
-              <img src="/assets/typcn--plus-outline.svg" alt="Add" />
-            </div>
+              <PlusCircle className="mr-2 text-green-400 group-hover:text-green-300 w-5 h-5" />
+              Add New Item
+            </button>
           </div>
 
-          <div className="bg-[#263238] rounded text-white overflow-hidden">
+          <div className="bg-white/10 backdrop-blur-lg rounded-lg overflow-hidden border border-white/20">
             {filteredMaterials.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <p className="text-2xl">No materials in inventory</p>
@@ -213,48 +271,60 @@ function OwnerInventory() {
             ) : (
               <div className="max-h-[500px] overflow-y-auto">
                 <table className="w-full">
-                  <thead className="bg-[#1C2126] sticky top-0">
+                  <thead className="bg-[#37474F] text-white sticky top-0">
                     <tr>
-                      <th className="p-4 text-left">Item Name</th>
-                      <th className="p-4 text-left">Canvases</th>
-                      <th className="p-4 text-left">Sizes</th>
-                      <th className="p-4 text-left">Qty</th>
-                      <th className="p-4 text-left">Actions</th>
+                      {['Item Name', 'Canvases', 'Sizes', 'Qty', 'Actions'].map((header) => (
+                        <th key={header} className="p-4 text-left">{header}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredMaterials.map((item) => (
-                      <tr key={item.id} className="border-b border-[#1C2126] hover:bg-[#1C2126] transition-colors">
-                        <td className="p-4">{item.itemName}</td>
-                        <td className="p-4">{item.canvases}</td>
-                        <td className="p-4">{item.sizes}</td>
-                        <td className="p-4">{item.quantity}</td>
-                        <td className="p-4">
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => handleEditItem(item)}
-                              className="hover:bg-blue-600 p-1 rounded transition-colors"
-                            >
-                              <img 
-                                src="/assets/basil--edit-solid.svg" 
-                                alt="Edit" 
-                                className="w-5 h-5"
-                              />
-                            </button>
-                            <button 
-                              onClick={() => confirmDeleteItem(item.id)}
-                              className="hover:bg-red-600 p-1 rounded transition-colors"
-                            >
-                              <img 
-                                src="/assets/bx--trash-white.svg" 
-                                alt="Delete" 
-                                className="w-5 h-5"
-                              />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredMaterials.map((item) => {
+                      const stockStatus = getStockStatus(item.quantity);
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`
+                            border-b border-white/10 bg-white
+                            hover:bg-[#1C2126]/10 
+                            transition-colors
+                            ${stockStatus === 'out-of-stock' ? 'bg-red-900/10' : ''}
+                            ${stockStatus === 'low-stock' ? 'bg-yellow-900/30' : ''}
+                          `}
+                        >
+                          <td className="p-4">{item.itemName}</td>
+                          <td className="p-4">{item.canvases}</td>
+                          <td className="p-4">{item.sizes}</td>
+                          <td className={`p-4 font-bold
+                            ${stockStatus === 'out-of-stock' ? 'text-red-500' : ''}
+                            ${stockStatus === 'low-stock' ? 'text-yellow-500' : ''}
+                          `}>
+                            {item.quantity}
+                            {stockStatus !== 'in-stock' && (
+                              <span className="ml-2 text-xs uppercase">
+                                {stockStatus === 'out-of-stock' ? '(Out of Stock)' : '(Low Stock)'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleEditItem(item)}
+                                className="hover:bg-blue-500/20 p-2 rounded-full transition-colors group"
+                              >
+                                <Edit2 className="w-5 h-5 text-blue-500 group-hover:text-blue-600" />
+                              </button>
+                              <button
+                                onClick={() => confirmDeleteItem(item.id)}
+                                className="hover:bg-red-500/20 p-2 rounded-full transition-colors group"
+                              >
+                                <Trash2 className="w-5 h-5 text-red-500 group-hover:text-red-600" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -262,7 +332,7 @@ function OwnerInventory() {
           </div>
 
           {isModalOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 mt-24">
               <div
                 className="bg-[#37474F] rounded-lg p-8 max-w-[90vw] max-h-[90vh] overflow-auto relative shadow-2xl"
               >
@@ -339,7 +409,8 @@ function OwnerInventory() {
             </div>
           )}
         </div>
-        <Pricing/>
+        <Pricing />
+        <TextureUpload />
       </main>
     </>
   );

@@ -2,13 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import OwnerHeader from "../components/OwnerHeader";
 import CategoryDesigns from '../components/CategoryDesigns';
 import { db, storage, auth } from '../firebase';
 import DeletionAlert from "../components/DeletionAlert"
-import { notifyError, notifyWarning } from "../general/CustomToast";
+import { notifyError, notifySuccess, notifyWarning } from "../general/CustomToast";
 
-function ElementsDesign(){
+function ElementsDesign({ embedded = false }) {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -169,7 +168,7 @@ function ElementsDesign(){
 
             const newContainers = await Promise.all(uploadPromises);
             const updatedContainers = [...allImageContainers, ...newContainers];
-            
+
             setAllImageContainers(updatedContainers);
 
             await setDoc(doc(db, "designElements", "uploadedImages"), {
@@ -199,36 +198,36 @@ function ElementsDesign(){
 
     const removeImage = async () => {
         if (!imageToDelete) return;
-    
+
         try {
             const containerToRemove = allImageContainers.find(container => container.id === imageToDelete);
-    
+
             if (containerToRemove && containerToRemove.imageURL) {
                 // Decode the URL and extract the file path
                 const decodedURL = decodeURIComponent(containerToRemove.imageURL);
                 const filePathMatch = decodedURL.match(/\/o\/(.+?)\?/);
-                
+
                 if (filePathMatch && filePathMatch[1]) {
                     const filePath = filePathMatch[1];
-                    
+
                     // Create storage reference using the extracted file path
                     const storageRef = ref(storage, filePath);
-                    
+
                     // Delete the file from storage
                     await deleteObject(storageRef);
                 }
             }
-    
+
             const updatedContainers = allImageContainers.filter(container => container.id !== imageToDelete);
-    
+
             // Update Firestore document
             await setDoc(doc(db, "designElements", "uploadedImages"), {
                 containers: updatedContainers
             });
-    
+
             // Update local state
             setAllImageContainers(updatedContainers);
-    
+
             // Reset the imageToDelete state
             setImageToDelete(null);
         } catch (error) {
@@ -242,17 +241,17 @@ function ElementsDesign(){
     };
 
     return (
-        <>
-            <main className="flex flex-col">
-                <div className="relative flex flex-col bg-[#2F424B] w-[700px] h-[600px] rounded mt-20 overflow-y-auto p-4">
-                    <div className="flex items-center justify-between mb-4">
+        <div className={`flex flex-col ${embedded ? 'w-full' : ''}`}>
+            <div className="bg-[#2F424B] rounded-lg p-4 md:p-6">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6">Elements</h2>
+                <div className="relative w-full overflow-y-auto max-h-[500px]">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                         <CategoryDesigns
                             categories={categories}
                             selectedCategory={selectedCategory}
                             setSelectedCategory={setSelectedCategory}
                         />
-                        <div className="flex items-center gap-1">
-                            {/* Replace the select multiple button with a checkbox button */}
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => {
                                     setShowCheckboxes(!showCheckboxes);
@@ -260,22 +259,21 @@ function ElementsDesign(){
                                         setSelectedImages(new Set());
                                     }
                                 }}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-                                    showCheckboxes ? 'bg-[#0CAADC] text-white' : 'text-white hover:bg-gray-600'
-                                }`}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${showCheckboxes ? 'bg-[#0CAADC] text-white' : 'text-white hover:bg-gray-600'
+                                    }`}
                                 title={showCheckboxes ? 'Exit Selection Mode' : 'Select Multiple'}
                             >
-                                <svg 
-                                    className="w-5 h-5" 
-                                    viewBox="0 0 24 24" 
-                                    fill="none" 
-                                    stroke="currentColor" 
+                                <svg
+                                    className="w-5 h-5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
                                     strokeWidth="2"
                                 >
                                     <rect x="3" y="3" width="18" height="18" rx="2" />
                                     {showCheckboxes && <path d="M8 12l3 3 6-6" />}
                                 </svg>
-                                {showCheckboxes ? 'Cancel' : 'Select'}
+                                <span className="hidden sm:inline">{showCheckboxes ? 'Cancel' : 'Select'}</span>
                             </button>
 
                             <button
@@ -293,40 +291,38 @@ function ElementsDesign(){
                             {showCheckboxes && selectedImages.size > 0 && (
                                 <button
                                     onClick={handleBulkDelete}
-                                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 w-24"
+                                    className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200"
                                 >
                                     <img
                                         src="/assets/bx--trash-white.svg"
                                         alt="Delete Selected"
                                         className="w-5 h-5"
                                     />
-                                 ({selectedImages.size})
+                                    <span>({selectedImages.size})</span>
                                 </button>
                             )}
                         </div>
                     </div>
 
-                    {/* Modify the image grid section */}
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
                         {filteredImageContainers.map((container) => (
                             <div
                                 key={container.id}
-                                className="relative mt-4 w-[150px] h-[100px] rounded cursor-pointer flex items-center justify-center mr-4 mb-4 overflow-hidden bg-[#F1F3F5]"
+                                className="relative aspect-video bg-[#F1F3F5] rounded cursor-pointer overflow-hidden group"
                                 onClick={() => showCheckboxes && handleCheckboxToggle(container.id)}
                             >
                                 {showCheckboxes && (
                                     <div className="absolute top-2 left-2 z-10">
-                                        <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
-                                            selectedImages.has(container.id) 
-                                                ? 'bg-[#0CAADC] border-[#0CAADC]' 
+                                        <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${selectedImages.has(container.id)
+                                                ? 'bg-[#0CAADC] border-[#0CAADC]'
                                                 : 'border-white bg-transparent'
-                                        }`}>
+                                            }`}>
                                             {selectedImages.has(container.id) && (
-                                                <svg 
-                                                    className="w-4 h-4 text-white" 
-                                                    viewBox="0 0 24 24" 
-                                                    fill="none" 
-                                                    stroke="currentColor" 
+                                                <svg
+                                                    className="w-4 h-4 text-white"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
                                                     strokeWidth="3"
                                                 >
                                                     <path d="M5 13l4 4L19 7" />
@@ -356,9 +352,10 @@ function ElementsDesign(){
                     </div>
                 </div>
 
+                {/* Modals */}
                 {showNameInput && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                        <div className="bg-white rounded-lg p-6 shadow-lg w-[400px]">
+                        <div className="bg-white rounded-lg p-6 shadow-lg w-[400px] max-w-[90vw]">
                             <h2 className="text-xl font-bold mb-4">Enter Image Name</h2>
                             <input
                                 type="text"
@@ -389,10 +386,10 @@ function ElementsDesign(){
                         </div>
                     </div>
                 )}
-    
+
                 {showCategoryOverlay && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                        <div className="bg-white rounded-lg p-6 shadow-lg w-[400px]">
+                        <div className="bg-white rounded-lg p-6 shadow-lg w-[400px] max-w-[90vw]">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-bold">Select a Category</h2>
                                 <img
@@ -419,7 +416,7 @@ function ElementsDesign(){
                         </div>
                     </div>
                 )}
-    
+
                 {isUploading && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                         <div className="bg-white p-6 rounded-lg flex items-center">
@@ -447,7 +444,7 @@ function ElementsDesign(){
                         </div>
                     </div>
                 )}
-    
+
                 <input
                     id="file-input"
                     type="file"
@@ -456,7 +453,7 @@ function ElementsDesign(){
                     className="hidden"
                     onChange={handleMultipleImageUpload}
                 />
-                 <DeletionAlert 
+                <DeletionAlert
                     isOpen={!!imageToDelete}
                     onClose={() => setImageToDelete(null)}
                     onConfirm={removeImage}
@@ -465,9 +462,9 @@ function ElementsDesign(){
                     confirmText="Delete Image"
                     cancelText="Cancel"
                 />
-            </main>
-        </>
+            </div>
+        </div>
     );
-}    
+}
 
 export default ElementsDesign;

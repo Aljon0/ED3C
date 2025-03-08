@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 const CylindricalText = ({
   text,
+  font = "helvetiker", // Add font prop with default value
   radius = 0.5,
   height,
   color = "white",
@@ -15,9 +16,10 @@ const CylindricalText = ({
   onSelect,
   onRemove,
   onTextChange,
-  onUpdateHeight, // New prop for handling font size updates
+  onUpdateHeight,
 }) => {
   const groupRef = useRef();
+  const textEditRef = useRef();
   const [isMoving, setIsMoving] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(position);
   const [isEditing, setIsEditing] = useState(false);
@@ -32,14 +34,43 @@ const CylindricalText = ({
   const startAngle = -totalArcAngle / 2;
   const textRadius = radius - 0.2;
 
-  // Add resize handlers
+  // Handle clicking outside of text edit
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isEditing && textEditRef.current && !textEditRef.current.contains(event.target)) {
+        setIsEditing(false);
+        onTextChange?.(editingText);
+      }
+    };
+
+    if (isEditing) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEditing, editingText, onTextChange]);
+
+  // Add escape key handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isEditing) {
+        setIsEditing(false);
+        onTextChange?.(editingText);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditing, editingText, onTextChange]);
+
   const handleResizeStart = (event) => {
     event.stopPropagation();
     setIsResizing(true);
     setInitialPointerY(event.clientY);
     setInitialFontSize(fontSize);
     
-    // Add window event listeners for resize
     window.addEventListener('mousemove', handleResizeMove);
     window.addEventListener('mouseup', handleResizeEnd);
   };
@@ -48,7 +79,7 @@ const CylindricalText = ({
     if (!isResizing || initialPointerY === null) return;
 
     const deltaY = (event.clientY - initialPointerY) * -0.002;
-    const newFontSize = Math.max(0.05, initialFontSize + deltaY); // Minimum size of 0.05
+    const newFontSize = Math.max(0.05, initialFontSize + deltaY);
     
     if (onUpdateHeight) {
       onUpdateHeight(newFontSize);
@@ -59,17 +90,16 @@ const CylindricalText = ({
     setIsResizing(false);
     setInitialPointerY(null);
     
-    // Remove window event listeners
     window.removeEventListener('mousemove', handleResizeMove);
     window.removeEventListener('mouseup', handleResizeEnd);
   };
 
-  // ... (keep existing handlers)
-
   const handleDoubleClick = (event) => {
     event.stopPropagation();
-    setIsEditing(true);
-    onSelect?.(true);
+    if (!isEditing) {
+      setIsEditing(true);
+      onSelect?.(true);
+    }
   };
 
   const handleTextChange = (e) => {
@@ -77,7 +107,8 @@ const CylindricalText = ({
   };
 
   const handleTextSubmit = (e) => {
-    if (e.key === 'Enter' || e.type === 'blur') {
+    if (e.key === 'Enter' || (e.key === 'Enter' && e.shiftKey)) {
+      e.preventDefault();
       setIsEditing(false);
       onTextChange?.(editingText);
     }
@@ -125,20 +156,42 @@ const CylindricalText = ({
     >
       {isEditing ? (
         <Html position={[0, 0, textRadius]}>
-          <input
-            type="text"
+          <textarea
+            ref={textEditRef}
             value={editingText}
             onChange={handleTextChange}
             onKeyDown={handleTextSubmit}
-            onBlur={handleTextSubmit}
             autoFocus
-            className="px-2 py-1 bg-inherit border-none rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-black"
             style={{
-              color: 'black',
-              fontSize: '16px',
-              minWidth: '100px'
+              position: 'absolute',
+              transform: 'translate(-50%, -50%)',
+              width: '200px',
+              minHeight: '50px',
+              backgroundColor: 'white',
+              border: '2px solid #2F424B',
+              borderRadius: '4px',
+              padding: '10px',
+              resize: 'vertical',
+              outline: 'none',
+              color: '#000',
+              zIndex: 1000,
             }}
           />
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              color: 'white',
+              fontSize: '12px',
+              whiteSpace: 'nowrap',
+              textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
+              pointerEvents: 'none'
+            }}
+          >
+            Press Enter or Esc to save
+          </div>
         </Html>
       ) : (
         text.split('').map((char, i) => {
@@ -151,6 +204,7 @@ const CylindricalText = ({
           return (
             <Text
               key={i}
+              font={`/fonts/${font}.ttf`} // Add font path here
               color={color}
               fontSize={fontSize}
               position={[x, 0, z]}
@@ -167,7 +221,6 @@ const CylindricalText = ({
 
       {isSelected && !isEditing && (
         <>
-          {/* Resize Handle */}
           <Html position={[-radius - 0.2, fontSize / 2, 0]}>
             <div 
               className="w-6 h-6 flex items-center justify-center cursor-ns-resize bg-[#2F424B] rounded-full shadow-lg transform -translate-y-1/2"
@@ -181,7 +234,6 @@ const CylindricalText = ({
             </div>
           </Html>
 
-          {/* Remove Button */}
           <mesh 
             position={[radius + 0.2, 0, 0]} 
             onClick={(e) => {

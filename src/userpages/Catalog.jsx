@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import UserHeader from "../components/UserHeader";
-import UserSideBar from "../components/UserSideBar";
+import Navigation from '../components/Navigation.jsx';
 import { NavLink, useNavigate } from "react-router-dom";
 import { notifySuccess, notifyError } from "../general/CustomToast.js";
 import { getFirestore, collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
@@ -16,7 +15,7 @@ function Catalog() {
     const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
-    
+
     const db = getFirestore();
     const storage = getStorage();
 
@@ -27,6 +26,20 @@ function Catalog() {
         'Urns',
         'Table Signs'
     ];
+
+    const loadImageWithRetry = async (imagePath, retries = 3) => {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const imageRef = ref(storage, imagePath);
+                const imageUrl = await getDownloadURL(imageRef);
+                return imageUrl;
+            } catch (error) {
+                console.warn(`Attempt ${i + 1}: Failed to load image ${imagePath}`, error);
+                if (i === retries - 1) throw error;
+                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Wait before retrying
+            }
+        }
+    };
 
     const processThumbnail = useCallback((thumbnailData) => {
         if (!thumbnailData) return null;
@@ -41,7 +54,7 @@ function Catalog() {
             return null;
         }
     }, []);
-    
+
     const validateSceneState = useCallback((sceneState) => {
         const defaultState = {
             selectedObject: "gravestone",
@@ -74,70 +87,79 @@ function Catalog() {
         try {
             const designsQuery = query(
                 collection(db, 'designs'),
-                isOwnerDesigns ? 
+                isOwnerDesigns ?
                     where('isOwner', '==', true) :
                     where('userId', '==', currentUser.uid)
             );
 
             const querySnapshot = await getDocs(designsQuery);
-            const designPromises = querySnapshot.docs.map(async (doc) => {
+            const designs = [];
+
+            for (const doc of querySnapshot.docs) {
                 try {
                     const data = doc.data();
-                    const thumbnailUrl = await getDownloadURL(ref(storage, data.thumbnail));
-                    
-                    // Extract stone and texture data
-                    const rawSceneState = data.sceneState || {};
+                    console.log(`Processing design ${doc.id}:`, data);
+
+                    // Load thumbnail
+                    const thumbnailUrl = await loadImageWithRetry(data.thumbnail);
+                    if (!thumbnailUrl) {
+                        console.warn(`Thumbnail not found for design ${doc.id}`);
+                        continue; // Skip this design if the thumbnail fails to load
+                    }
+
+                    // Process scene state
                     const processedSceneState = {
-                        selectedObject: rawSceneState.selectedObject || "gravestone",
-                        selectedTexture: rawSceneState.selectedTexture || "marble",
-                        stoneDimensions: rawSceneState.stoneDimensions || { width: 2, height: 2, thickness: 0.5 },
-                        texts: rawSceneState.texts || [],
-                        uploadedImages: []
+                        selectedObject: data.sceneState?.selectedObject || "gravestone",
+                        selectedTexture: data.sceneState?.selectedTexture || "marble",
+                        texts: Array.isArray(data.sceneState?.texts) ? data.sceneState.texts : [],
+                        uploadedImages: [],
+                        stoneDimensions: {
+                            width: data.sceneState?.stoneDimensions?.width || 2,
+                            height: data.sceneState?.stoneDimensions?.height || 2,
+                            thickness: data.sceneState?.stoneDimensions?.thickness || 0.5
+                        }
                     };
 
-                    // Process uploaded images if they exist
-                    if (Array.isArray(rawSceneState.uploadedImages)) {
+                    // Process uploaded images
+                    if (Array.isArray(data.sceneState?.uploadedImages)) {
                         processedSceneState.uploadedImages = await Promise.all(
-                            rawSceneState.uploadedImages.map(async (img) => {
-                                if (img.data?.startsWith('designs/')) {
+                            data.sceneState.uploadedImages.map(async (img) => {
+                                if (img.data && typeof img.data === 'string' && img.data.startsWith('designs/')) {
                                     try {
-                                        const imageUrl = await getDownloadURL(ref(storage, img.data));
+                                        const imageUrl = await loadImageWithRetry(img.data);
                                         return { ...img, data: imageUrl };
                                     } catch (error) {
-                                        console.warn(`Failed to load image: ${img.data}`, error);
-                                        return null;
+                                        console.warn(`Failed to load image ${img.data} for design ${doc.id}:`, error);
+                                        return null; // Skip this image if it fails to load
                                     }
                                 }
                                 return img;
                             })
                         );
 
+                        // Filter out null values
                         processedSceneState.uploadedImages = processedSceneState.uploadedImages.filter(img => img !== null);
                     }
 
-                    // Validate the entire scene state
-                    const validatedSceneState = validateSceneState(processedSceneState);
-
-                    return {
+                    // Add the processed design to the list
+                    designs.push({
                         ...data,
                         id: doc.id,
                         thumbnail: thumbnailUrl,
-                        sceneState: validatedSceneState,
+                        sceneState: processedSceneState,
                         isOwnerDesign: isOwnerDesigns
-                    };
+                    });
                 } catch (error) {
-                    console.warn(`Failed to process design document ${doc.id}:`, error);
-                    return null;
+                    console.error(`Failed to process design ${doc.id}:`, error);
                 }
-            });
+            }
 
-            const designs = await Promise.all(designPromises);
-            return designs.filter(design => design !== null);
+            return designs;
         } catch (error) {
             console.error(`Error loading ${isOwnerDesigns ? 'owner' : 'customer'} designs:`, error);
             throw error;
         }
-    }, [currentUser, db, storage, validateSceneState]);
+    }, [currentUser, db, storage]);
 
     const validateDesign = useCallback((design, isOwner = false) => {
         if (!design || typeof design !== 'object') {
@@ -160,53 +182,29 @@ function Catalog() {
     }, [processThumbnail, validateSceneState]);
 
     const loadAllDesigns = useCallback(async () => {
+        setIsLoading(true);
         try {
-            console.log('Starting to load designs...');
-            
-            // Load owner designs
-            const ownerDesignsRaw = localStorage.getItem('savedDesigns');
-            let ownerDesignsList = [];
-            
-            if (ownerDesignsRaw) {
-                try {
-                    const parsed = JSON.parse(ownerDesignsRaw);
-                    if (Array.isArray(parsed)) {
-                        ownerDesignsList = parsed
-                            .map(design => validateDesign(design, true))
-                            .filter(design => design !== null);
-                    }
-                } catch (e) {
-                    console.error('Error parsing owner designs:', e);
-                }
-            }
+            const [ownerDesigns, customerDesigns] = await Promise.all([
+                loadDesignsFromFirestore(true),
+                loadDesignsFromFirestore(false)
+            ]);
 
-            // Load customer designs
-            const customerDesignsRaw = localStorage.getItem('customerSavedDesigns');
-            let customerDesignsList = [];
-            
-            if (customerDesignsRaw) {
-                try {
-                    const parsed = JSON.parse(customerDesignsRaw);
-                    if (Array.isArray(parsed)) {
-                        customerDesignsList = parsed
-                            .map(design => validateDesign(design, false))
-                            .filter(design => design !== null);
-                    }
-                } catch (e) {
-                    console.error('Error parsing customer designs:', e);
-                }
-            }
-
-            setOwnerDesigns(ownerDesignsList);
-            setSavedDesigns(customerDesignsList);
-
+            setOwnerDesigns(ownerDesigns);
+            setSavedDesigns(customerDesigns);
         } catch (error) {
-            console.error('Error in loadAllDesigns:', error);
-            notifyError('Error loading designs');
+            console.error('Error loading designs:', error);
+            notifyError('Failed to load designs');
             setOwnerDesigns([]);
             setSavedDesigns([]);
+        } finally {
+            setIsLoading(false);
         }
-    }, [validateDesign]);
+    }, [loadDesignsFromFirestore]);
+
+    // Load designs on component mount
+    useEffect(() => {
+        loadAllDesigns();
+    }, [loadAllDesigns]);
 
     const getFilteredDesigns = useCallback(() => {
         if (selectedCategory === 'All') {
@@ -219,44 +217,44 @@ function Catalog() {
 
     const handleEdit = (design) => {
         try {
-          const editState = {
-            selectedObject: design.sceneState.selectedObject || "gravestone",
-            selectedTexture: design.sceneState.selectedTexture || "marble",
-            texts: Array.isArray(design.sceneState.texts) ? design.sceneState.texts : [],
-            uploadedImages: Array.isArray(design.sceneState.uploadedImages) ? design.sceneState.uploadedImages : [],
-            stoneDimensions: design.sceneState.stoneDimensions || {
-              width: 2,
-              height: 2,
-              thickness: 0.5
-            }
-          };
-      
-          // Store the complete state with additional metadata
-          const saveData = {
-            state: editState,
-            designId: design.id,
-            metadata: {
-              originalTexture: design.sceneState.selectedTexture,
-              originalObject: design.sceneState.selectedObject,
-              lastEdited: new Date().toISOString()
-            }
-          };
-      
-          localStorage.setItem('currentEditDesign', JSON.stringify(saveData));
-          
-          // Also store the initial state separately for reference
-          localStorage.setItem('initialEditState', JSON.stringify({
-            selectedObject: design.sceneState.selectedObject,
-            selectedTexture: design.sceneState.selectedTexture,
-            stoneDimensions: design.sceneState.stoneDimensions
-          }));
-          
-          navigate('/Create');
+            const editState = {
+                selectedObject: design.sceneState.selectedObject || "gravestone",
+                selectedTexture: design.sceneState.selectedTexture || "marble",
+                texts: Array.isArray(design.sceneState.texts) ? design.sceneState.texts : [],
+                uploadedImages: Array.isArray(design.sceneState.uploadedImages) ? design.sceneState.uploadedImages : [],
+                stoneDimensions: design.sceneState.stoneDimensions || {
+                    width: 2,
+                    height: 2,
+                    thickness: 0.5
+                }
+            };
+
+            // Store the complete state with additional metadata
+            const saveData = {
+                state: editState,
+                designId: design.id,
+                metadata: {
+                    originalTexture: design.sceneState.selectedTexture,
+                    originalObject: design.sceneState.selectedObject,
+                    lastEdited: new Date().toISOString()
+                }
+            };
+
+            localStorage.setItem('currentEditDesign', JSON.stringify(saveData));
+
+            // Also store the initial state separately for reference
+            localStorage.setItem('initialEditState', JSON.stringify({
+                selectedObject: design.sceneState.selectedObject,
+                selectedTexture: design.sceneState.selectedTexture,
+                stoneDimensions: design.sceneState.stoneDimensions
+            }));
+
+            navigate('/Create');
         } catch (error) {
-          console.error('Error preparing design for edit:', error);
-          notifyError('Error preparing design for edit');
+            console.error('Error preparing design for edit:', error);
+            notifyError('Error preparing design for edit');
         }
-      };
+    };
 
     const handleDelete = useCallback(async (designId) => {
         if (!currentUser || !designId) return;
@@ -292,18 +290,18 @@ function Catalog() {
                 collection(db, 'designs'),
                 where('isOwner', '==', true)
             );
-            
+
             const querySnapshot = await getDocs(ownerDesignsQuery);
             const designsPromises = querySnapshot.docs.map(async (doc) => {
                 const data = doc.data();
-                
+
                 try {
                     // Get thumbnail URL
                     const thumbnailUrl = await getDownloadURL(ref(storage, data.thumbnail));
-                    
+
                     // Process scene state and its images
                     let processedSceneState = validateSceneState(data.sceneState);
-                    
+
                     // Process uploaded images if they exist
                     if (processedSceneState.uploadedImages?.length > 0) {
                         const processedImages = await Promise.all(
@@ -320,7 +318,7 @@ function Catalog() {
                                 return img;
                             })
                         );
-                        
+
                         processedSceneState.uploadedImages = processedImages.filter(img => img !== null);
                     }
 
@@ -340,7 +338,7 @@ function Catalog() {
             const designs = await Promise.all(designsPromises);
             const validDesigns = designs.filter(design => design !== null);
             setOwnerDesigns(validDesigns);
-            
+
         } catch (error) {
             console.error('Error loading owner designs:', error);
             setOwnerDesigns([]);
@@ -350,37 +348,57 @@ function Catalog() {
 
     const loadCustomerDesigns = useCallback(async () => {
         if (!currentUser) return;
-        
+
         try {
             const customerDesignsQuery = query(
                 collection(db, 'designs'),
                 where('userId', '==', currentUser.uid),
                 where('isOwner', '==', false)
             );
-            
+
             const querySnapshot = await getDocs(customerDesignsQuery);
             const designsData = await Promise.all(querySnapshot.docs.map(async (doc) => {
                 const data = doc.data();
-                
+
                 try {
-                    const thumbnailUrl = await getDownloadURL(ref(storage, data.thumbnail));
-                    
-                    let processedSceneState = { ...data.sceneState };
-                    if (processedSceneState.uploadedImages) {
-                        processedSceneState.uploadedImages = await Promise.all(
-                            processedSceneState.uploadedImages.map(async (img) => {
-                                if (img.data && typeof img.data === 'string' && img.data.startsWith('designs/')) {
-                                    try {
-                                        const imageUrl = await getDownloadURL(ref(storage, img.data));
-                                        return { ...img, data: imageUrl };
-                                    } catch (error) {
-                                        console.warn('Failed to load image:', error);
-                                        return img;
-                                    }
+                    // Load thumbnail
+                    const thumbnailUrl = await loadImageWithRetry(data.thumbnail);
+                    if (!thumbnailUrl) {
+                        console.warn(`Failed to load thumbnail for design ${doc.id}`);
+                        return null;
+                    }
+
+                    // Process scene state
+                    let processedSceneState = {
+                        ...data.sceneState,
+                        selectedObject: data.sceneState?.selectedObject || "gravestone",
+                        selectedTexture: data.sceneState?.selectedTexture || "marble",
+                        texts: Array.isArray(data.sceneState?.texts) ? data.sceneState.texts : [],
+                        uploadedImages: [],
+                        stoneDimensions: {
+                            width: data.sceneState?.stoneDimensions?.width || 2,
+                            height: data.sceneState?.stoneDimensions?.height || 2,
+                            thickness: data.sceneState?.stoneDimensions?.thickness || 0.5
+                        }
+                    };
+
+                    // Process uploaded images if they exist
+                    if (Array.isArray(data.sceneState?.uploadedImages)) {
+                        const processedImages = await Promise.all(
+                            data.sceneState.uploadedImages.map(async (img) => {
+                                if (!img || !img.data) return null;
+
+                                try {
+                                    const imageUrl = await loadImageWithRetry(img.data);
+                                    return imageUrl ? { ...img, data: imageUrl } : null;
+                                } catch (error) {
+                                    console.warn('Failed to load image:', error);
+                                    return null;
                                 }
-                                return img;
                             })
                         );
+
+                        processedSceneState.uploadedImages = processedImages.filter(img => img !== null);
                     }
 
                     return {
@@ -401,6 +419,7 @@ function Catalog() {
         } catch (error) {
             console.error('Error loading customer designs:', error);
             setSavedDesigns([]);
+            notifyError('Failed to load customer designs');
         }
     }, [currentUser, db, storage]);
 
@@ -410,7 +429,7 @@ function Catalog() {
                 selectedObject: design.sceneState.selectedObject || "gravestone",
                 selectedTexture: design.sceneState.selectedTexture || "marble",
                 texts: Array.isArray(design.sceneState.texts) ? JSON.parse(JSON.stringify(design.sceneState.texts)) : [],
-                uploadedImages: Array.isArray(design.sceneState.uploadedImages) ? 
+                uploadedImages: Array.isArray(design.sceneState.uploadedImages) ?
                     JSON.parse(JSON.stringify(design.sceneState.uploadedImages)) : [],
                 stoneDimensions: design.sceneState.stoneDimensions || {
                     width: 2,
@@ -432,7 +451,7 @@ function Catalog() {
             };
 
             localStorage.setItem('currentCustomerEditDesign', JSON.stringify(saveData));
-            
+
             // Store initial state for reference
             localStorage.setItem('initialEditState', JSON.stringify({
                 selectedObject: design.sceneState.selectedObject,
@@ -452,7 +471,7 @@ function Catalog() {
             setIsLoading(true);
             try {
                 await loadOwnerDesigns();
-                
+
                 // Only load customer designs if there's a logged-in user
                 if (currentUser) {
                     const customerDesignsQuery = query(
@@ -460,7 +479,7 @@ function Catalog() {
                         where('userId', '==', currentUser.uid),
                         where('isOwner', '==', false)
                     );
-                    
+
                     const querySnapshot = await getDocs(customerDesignsQuery);
                     const customerDesigns = await Promise.all(
                         querySnapshot.docs.map(async (doc) => {
@@ -540,26 +559,26 @@ function Catalog() {
 
     return (
         <>
-            <UserHeader />
-            <UserSideBar />
-            <div className="flex ml-64 mt-16">
-                <main className="p-8 flex-1">
-                    <div className="flex items-center ml-16">
-                        <span className="font-bold text-[#37474F] text-5xl ml-64">CATALOG</span>
+            <Navigation />
+            <div className=" md:ml-64 mt-8">
+                <main className="p-4 md:p-8">
+                    {/* Catalog Title */}
+                    <div className="flex items-center justify-center md:justify-start mb-6">
+                        <h1 className="font-bold text-[#37474F] text-3xl md:text-5xl">CATALOG</h1>
                     </div>
 
-                    {/* Recent Designs Section - Always visible at the top */}
-                    <div className="relative bg-[#2F424B] w-[900px] rounded mt-8 p-6 overflow-y-auto">
-                        <h2 className="text-2xl font-bold text-white mb-6">Recent Designs</h2>
-                        
+                    {/* Recent Designs Section */}
+                    <div className="bg-[#2F424B] rounded-lg p-4 md:p-6 mb-6">
+                        <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6">Recent Designs</h2>
+
                         {savedDesigns.length > 0 ? (
-                            <div className="grid grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                                 {savedDesigns.map((design) => (
                                     <div
                                         key={design.id}
                                         className="relative group rounded-lg overflow-hidden shadow-lg"
                                     >
-                                        <div className="w-full h-[150px] bg-[#DADADA] overflow-hidden">
+                                        <div className="aspect-video bg-[#DADADA] overflow-hidden">
                                             <img
                                                 src={design.thumbnail}
                                                 alt="Saved Design"
@@ -568,19 +587,19 @@ function Catalog() {
                                             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all duration-300 flex flex-col justify-center items-center gap-3">
                                                 <button
                                                     onClick={() => handleEdit(design)}
-                                                    className="opacity-0 group-hover:opacity-100 bg-blue-500 text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-blue-600 transition-all transform translate-y-4 group-hover:translate-y-0"
+                                                    className="opacity-0 group-hover:opacity-100 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-blue-600 transition-all transform translate-y-4 group-hover:translate-y-0"
                                                 >
                                                     Edit
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(design.id)}
-                                                    className="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-red-600 transition-all transform translate-y-4 group-hover:translate-y-0"
+                                                    className="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-red-600 transition-all transform translate-y-4 group-hover:translate-y-0"
                                                 >
                                                     Delete
                                                 </button>
                                             </div>
                                         </div>
-                                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-3 flex justify-between items-center">
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2 md:p-3 flex justify-between items-center">
                                             <span className="text-sm font-medium">Recent Design</span>
                                             <span className="text-xs opacity-75">{formatDate(design.date)}</span>
                                         </div>
@@ -596,64 +615,65 @@ function Catalog() {
                     </div>
 
                     {/* Templates Section */}
-                    <div className="relative bg-[#2F424B] w-[900px] rounded mt-8 p-6 overflow-y-auto">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-white">Templates</h2>
-                            <div
-                                className="flex items-center justify-between cursor-pointer p-3 bg-white bg-opacity-10 rounded w-48 hover:bg-opacity-20 transition-all"
-                                onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                            >
-                                <div className="flex items-center">
-                                    <img
-                                        src="/assets/icon-park-outline--category-management.svg"
-                                        className="w-6 h-6 mr-2"
-                                        alt="Category"
-                                    />
-                                    <span className="text-white font-medium">{selectedCategory}</span>
-                                </div>
-                                <svg
-                                    className={`w-4 h-4 text-white transition-transform ${
-                                        isCategoryDropdownOpen ? 'transform rotate-180' : ''
-                                    }`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
+                    <div className="bg-[#2F424B] rounded-lg p-4 md:p-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-6 gap-4">
+                            <h2 className="text-xl md:text-2xl font-bold text-white">Templates</h2>
+                            <div className="relative">
+                                <div
+                                    className="flex items-center justify-between cursor-pointer p-3 bg-white bg-opacity-10 rounded w-48 hover:bg-opacity-20 transition-all"
+                                    onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
                                 >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </div>
-                            
-                            {isCategoryDropdownOpen && (
-                                <div className="absolute top-16 right-6 bg-white rounded shadow-lg z-10 w-48 mt-1">
-                                    {categories.map((category) => (
-                                        <div
-                                            key={category}
-                                            className="p-3 hover:bg-gray-100 cursor-pointer transition-colors"
-                                            onClick={() => {
-                                                setSelectedCategory(category);
-                                                setIsCategoryDropdownOpen(false);
-                                            }}
-                                        >
-                                            {category}
-                                        </div>
-                                    ))}
+                                    <div className="flex items-center">
+                                        <img
+                                            src="/assets/icon-park-outline--category-management.svg"
+                                            className="w-5 h-5 mr-2"
+                                            alt="Category"
+                                        />
+                                        <span className="text-white font-medium">{selectedCategory}</span>
+                                    </div>
+                                    <svg
+                                        className={`w-4 h-4 text-white transition-transform ${isCategoryDropdownOpen ? 'transform rotate-180' : ''
+                                            }`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
                                 </div>
-                            )}
+
+                                {isCategoryDropdownOpen && (
+                                    <div className="absolute top-full left-0 right-0 bg-white rounded shadow-lg z-10 mt-1">
+                                        {categories.map((category) => (
+                                            <div
+                                                key={category}
+                                                className="p-3 hover:bg-gray-100 cursor-pointer transition-colors"
+                                                onClick={() => {
+                                                    setSelectedCategory(category);
+                                                    setIsCategoryDropdownOpen(false);
+                                                }}
+                                            >
+                                                {category}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                             {getFilteredDesigns().map((design) => (
                                 <div
                                     key={design.id}
                                     className="relative group rounded-lg overflow-hidden shadow-lg"
                                 >
-                                    <div className="w-full h-[150px] bg-[#DADADA] overflow-hidden">
+                                    <div className="aspect-video bg-[#DADADA] overflow-hidden">
                                         <img
                                             src={design.thumbnail}
                                             alt={`${design.category} Design`}
                                             className="w-full h-full object-cover transition-transform group-hover:scale-105"
                                         />
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all duration-300 flex flex-col justify-center items-center gap-3">
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all duration-300 flex justify-center items-center">
                                             <button
                                                 onClick={() => handleUseTemplate(design)}
                                                 className="opacity-0 group-hover:opacity-100 bg-blue-500 text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-blue-600 transition-all transform translate-y-4 group-hover:translate-y-0"
@@ -662,7 +682,7 @@ function Catalog() {
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-3 flex justify-between items-center">
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2 md:p-3 flex justify-between items-center">
                                         <span className="text-sm font-medium">{design.category}</span>
                                         <span className="text-xs opacity-75">{formatDate(design.date)}</span>
                                     </div>
@@ -679,9 +699,9 @@ function Catalog() {
                     </div>
                 </main>
 
-                <div className="flex-1 p-8">
+                <aside className="p-4 md:p-8">
                     <UserElements />
-                </div>
+                </aside>
             </div>
         </>
     );

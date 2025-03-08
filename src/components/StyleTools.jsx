@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Alert, DeletionAlert } from "../components/Alert";  // Update the import path as needed
 import Tooltip from "../components/Tooltip";
 
 const TextureOption = ({ texture, label, selected, onClick}) => {
@@ -34,6 +35,10 @@ const StyleTools = ({
   onImageUpload,
 }) => {
   const [showTextureMenu, setShowTextureMenu] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("error");
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -78,8 +83,9 @@ const StyleTools = ({
         ];
       case "table-signs":
         return [
-          { id: "marble", label: "Marble" },
+          { id: "plain white", label: "plain white" },
           { id: "black_galaxy", label: "Black Galaxy" },
+          { id: "plain black", label: "plain black"},
         ];
       default:
         return [
@@ -93,12 +99,36 @@ const StyleTools = ({
 
   const textureOptions = getTextureOptions();
 
+  const handleFileUpload = (type) => {
+    const input = document.getElementById('file-upload');
+    input.accept = type === 'design' ? 'image/png' : 'image/jpeg,image/jpg';
+    input.click();
+    setShowUploadDialog(false);
+  };
+
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Check if file is PNG
-      if (file.type !== 'image/png') {
-        alert('Please upload a PNG file with transparent background');
+      // Check file type
+      if (file.type === 'image/png') {
+        setAlertMessage('Remember: For designs, ensure the PNG has a transparent background');
+        setAlertType('success');
+      } else if (['image/jpeg', 'image/jpg'].includes(file.type)) {
+        setAlertMessage('Picture file selected. Processing...');
+        setAlertType('success');
+      } else {
+        setAlertMessage('Invalid file type. Please use PNG for designs or JPEG for pictures.');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Check file size
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        setAlertMessage('File size should be less than 5MB');
+        setAlertType('error');
+        setShowAlert(true);
         return;
       }
 
@@ -106,15 +136,26 @@ const StyleTools = ({
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          // Create a canvas to check transparency
+          if (img.width > 4096 || img.height > 4096) {
+            setAlertMessage('Image dimensions should be 4096x4096 pixels or smaller');
+            setAlertType('error');
+            setShowAlert(true);
+            return;
+          }
+
           const canvas = document.createElement('canvas');
           canvas.width = img.width;
           canvas.height = img.height;
           const ctx = canvas.getContext('2d');
+          
+          if (file.type !== 'image/png') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+          
           ctx.drawImage(img, 0, 0);
-
-          // Convert to base64 and pass to parent
-          onImageUpload(e.target.result);
+          onImageUpload(canvas.toDataURL(file.type));
+          setShowAlert(true);
         };
         img.src = e.target.result;
       };
@@ -161,22 +202,39 @@ const StyleTools = ({
         )}
       </div>
 
-      <Tooltip text="Upload PNG Image">
-        <label htmlFor="file-upload" className="cursor-pointer w-8 h-8">
+      <Tooltip text="Upload Image">
+        <button onClick={() => setShowUploadDialog(true)} className="w-8 h-8">
           <img
             src="/assets/material-symbols--upload.svg"
             alt="Upload"
             className="w-8 h-8"
           />
-        </label>
+        </button>
         <input
           id="file-upload"
           type="file"
-          accept="image/png"
           className="hidden"
           onChange={handleImageUpload}
         />
       </Tooltip>
+
+      <DeletionAlert
+        isOpen={showUploadDialog}
+        onClose={() => setShowUploadDialog(false)}
+        title="Choose Upload Type"
+        message="Please select what type of image you want to upload:"
+        confirmText="Upload Design (PNG)"
+        cancelText="Upload Picture (JPEG)"
+        onConfirm={() => handleFileUpload('design')}
+      />
+
+      <Alert
+        type={alertType}
+        message={alertMessage}
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        duration={5000}
+      />
     </div>
   );
 };

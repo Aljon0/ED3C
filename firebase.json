@@ -1,8 +1,4 @@
 {
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
   "hosting": {
     "public": "dist",
     "ignore": [
@@ -15,26 +11,34 @@
         "source": "**",
         "destination": "/index.html"
       }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
+            "key": "Access-Control-Allow-Methods",
+            "value": "GET, HEAD, PUT, POST, DELETE, OPTIONS"
+          },
+          {
+            "key": "Access-Control-Allow-Headers",
+            "value": "Content-Type, Authorization, Content-Length, X-Requested-With, Accept"
+          },
+          {
+            "key": "Access-Control-Max-Age",
+            "value": "3600"
+          }
+        ]
+      }
     ]
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
   "emulators": {
-    "functions": {
-      "port": 5001
-    },
-    "firestore": {
-      "port": 8080
-    },
-    "database": {
-      "port": 9000
-    },
     "hosting": {
       "port": 5000
-    },
-    "storage": {
-      "port": 9199
     },
     "ui": {
       "enabled": true

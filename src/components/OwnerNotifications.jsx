@@ -1,18 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, updateDoc, doc, where } from 'firebase/firestore';
-import { db } from '../firebase';  // Adjust this import path to match your project structure
+import { useNavigate } from 'react-router-dom';
+import { db } from '../firebase';
 import { notifyError } from '../general/CustomToast';
+
+const formatMessageTime = (timestamp) => {
+    if (!timestamp) return '';
+    // Handle Firestore timestamp
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    // Reset now to current date for yesterday comparison
+    now.setHours(0, 0, 0, 0);
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+    
+    // Time format
+    const timeStr = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+    }).format(date);
+    
+    // Date format
+    if (isToday) {
+        return `Today at ${timeStr}`;
+    } else if (isYesterday) {
+        return `Yesterday at ${timeStr}`;
+    } else {
+        const dateStr = new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        }).format(date);
+        return `${dateStr} at ${timeStr}`;
+    }
+};
 
 function OwnerNotifications() {
     const [notifications, setNotifications] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
     const [hasUnread, setHasUnread] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const q = query(
             collection(db, 'notifications'),
-            where('recipientType', '==', 'owner'),
-            //orderBy('timestamp', 'desc')
+            where('recipientType', '==', 'owner')
         );
     
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -20,13 +56,19 @@ function OwnerNotifications() {
                 const data = doc.data();
                 return {
                     id: doc.id,
-                    ...data,
-                    timestamp: data.timestamp?.toDate() // Ensure timestamp is converted to Date object
+                    ...data
                 };
             });
             
-            setNotifications(notificationData);
-            setHasUnread(notificationData.some(notif => !notif.read));
+            // Sort notifications by timestamp in descending order
+            const sortedNotifications = notificationData.sort((a, b) => {
+                const timeA = a.timestamp?.toDate().getTime() || 0;
+                const timeB = b.timestamp?.toDate().getTime() || 0;
+                return timeB - timeA;
+            });
+            
+            setNotifications(sortedNotifications);
+            setHasUnread(sortedNotifications.some(notif => !notif.read));
         }, (error) => {
             notifyError("Error fetching notifications:", error);
         });
@@ -34,11 +76,18 @@ function OwnerNotifications() {
         return () => unsubscribe();
     }, []);
 
-    const markAsRead = async (id) => {
+    const markAsRead = async (id, orderId) => {
         try {
             await updateDoc(doc(db, 'notifications', id), {
                 read: true
             });
+            
+            // Navigate to orders page with order ID if available
+            if (orderId) {
+                navigate('/owner/orders', { state: { highlightOrderId: orderId } });
+            } else {
+                navigate('/owner/orders');
+            }
         } catch (error) {
             notifyError('Error marking notification as read:', error);
         }
@@ -51,14 +100,10 @@ function OwnerNotifications() {
                 updateDoc(doc(db, 'notifications', notification.id), { read: true })
             );
             await Promise.all(updatePromises);
+            
         } catch (error) {
             notifyError('Error marking all as read:', error);
         }
-    };
-
-    const formatTimestamp = (timestamp) => {
-        if (!timestamp) return '';
-        return new Date(timestamp).toLocaleString();
     };
 
     return (
@@ -104,7 +149,7 @@ function OwnerNotifications() {
                                     className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
                                         !notification.read ? 'bg-blue-50' : ''
                                     }`}
-                                    onClick={() => markAsRead(notification.id)}
+                                    onClick={() => markAsRead(notification.id, notification.orderId)}
                                 >
                                     <div className="flex items-start gap-3">
                                         <div className="mt-1 p-1 bg-blue-100 rounded">
@@ -115,7 +160,7 @@ function OwnerNotifications() {
                                         <div>
                                             <p className="text-sm text-gray-900">{notification.message}</p>
                                             <p className="text-xs text-gray-500 mt-1">
-                                                {formatTimestamp(notification.timestamp)}
+                                                {formatMessageTime(notification.timestamp)}
                                             </p>
                                         </div>
                                     </div>

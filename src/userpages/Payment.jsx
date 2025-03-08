@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
-import UserHeader from "../components/UserHeader.jsx";
-import UserSideBar from "../components/UserSideBar.jsx";
+import Navigation from "../components/Navigation.jsx";
 import { notifyError } from "../general/CustomToast.js";
+import { CreditCard, QrCode, X } from "lucide-react";
 
 function PolicyAgreement({ hasAgreed, setHasAgreed }) {
     return (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-2xl text-[#2F424B] font-semibold mb-4">Payment Policy Agreement</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+                <CreditCard className="w-6 h-6 text-[#2F424B]" />
+                <h2 className="text-2xl text-[#2F424B] font-semibold">Payment Policy Agreement</h2>
+            </div>
             <div className="space-y-4 text-[#2F424B]">
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
                     <h3 className="font-semibold mb-2">Important Policies:</h3>
                     <ul className="list-disc pl-5 space-y-2">
                         <li>Full payment/Partial Payment is required before the commencement of any project work.</li>
@@ -19,7 +22,7 @@ function PolicyAgreement({ hasAgreed, setHasAgreed }) {
                     </ul>
                 </div>
 
-                <div className="flex items-center space-x-2 mt-4">
+                <div className="flex items-center space-x-3 mt-4">
                     <input
                         type="checkbox"
                         id="policyCheckbox"
@@ -36,11 +39,24 @@ function PolicyAgreement({ hasAgreed, setHasAgreed }) {
     );
 }
 
+function PaymentMethod({ title, icon, children }) {
+    return (
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="flex items-center gap-2 mb-6">
+                {icon}
+                <h2 className="text-2xl text-[#2F424B] font-semibold">{title}</h2>
+            </div>
+            {children}
+        </div>
+    );
+}
+
 function Payment() {
     const [gcashAccounts, setGcashAccounts] = useState([]);
-    const [bpiAccount, setBpiAccount] = useState({ name: "", accountNumber: "" });
-    const [gcashImage, setGcashImage] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [bpiAccounts, setBpiAccounts] = useState([]);
+    const [gcashImages, setGcashImages] = useState([]);
+    const [bpiImages, setBpiImages] = useState([]);
+    const [selectedImage, setSelectedImage] = useState(null);
     const [hasAgreed, setHasAgreed] = useState(false);
 
     useEffect(() => {
@@ -50,11 +66,12 @@ function Payment() {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    setGcashImage(data.gcashImage || null);
+                    setGcashImages(data.gcashImages || []);
+                    setBpiImages(data.bpiImages || []);
                     setGcashAccounts(data.gcashAccounts || []);
-                    setBpiAccount(data.bpiAccount || { name: "", accountNumber: "" });
+                    setBpiAccounts(data.bpiAccounts || []);
                 } else {
-                    notifyError("No document found!");
+                    notifyError("No payment methods available!");
                 }
             } catch (error) {
                 notifyError("Error fetching payment data:", error);
@@ -65,64 +82,108 @@ function Payment() {
     }, []);
 
     return (
-        <>
-            <UserHeader />
-            <UserSideBar />
-            <main className="ml-64 p-8 mt-16">
-                <PolicyAgreement hasAgreed={hasAgreed} setHasAgreed={setHasAgreed} />
-                
-                {hasAgreed && (
-                    <>
-                        <span className="text-4xl text-[#2F424B] font-semibold mb-4 block mt-10">
-                            Available Payment Methods
-                        </span>
-                        <div className="mt-10 grid grid-cols-2 gap-8">
-                            <div className="text-center">
-                                <span className="text-2xl text-[#2F424B] font-semibold">GCash QR Code/Account</span>
-                                {gcashImage ? (
-                                    <>
-                                        <img 
-                                            src={gcashImage} 
-                                            alt="GCash QR Code" 
-                                            className="w-48 h-48 object-cover rounded-md shadow-lg mx-auto mt-4 cursor-pointer"
-                                            onClick={() => setIsModalOpen(true)}
-                                        />
-                                        {isModalOpen && (
-                                            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[100]">
-                                                <div className="relative">
-                                                    <img src={gcashImage} alt="GCash QR Code Large" className="w-[80vw] h-[90vh] object-contain" />
-                                                    <button 
-                                                        onClick={() => setIsModalOpen(false)} 
-                                                        className="absolute top-0 right-16 text-white text-3xl font-bold bg-inherit rounded-full p-1"
-                                                    >
-                                                        &times;
-                                                    </button>
+        <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 mt-16">
+            <Navigation />
+            <main className="flex-1 p-4 md:p-8">
+                <div className="max-w-7xl mx-auto">
+                    <PolicyAgreement hasAgreed={hasAgreed} setHasAgreed={setHasAgreed} />
+
+                    {hasAgreed && (
+                        <>
+                            <div className="flex items-center gap-3 mb-8">
+                                <CreditCard className="w-8 h-8 text-[#2F424B]" />
+                                <h1 className="text-4xl text-[#2F424B] font-semibold">Available Payment Methods</h1>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <PaymentMethod
+                                    title="GCash QR Codes"
+                                    icon={<QrCode className="w-6 h-6 text-[#2F424B]" />}
+                                >
+                                    {gcashImages.length > 0 ? (
+                                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
+                                            {gcashImages.map((image, index) => (
+                                                <div key={index} className="relative group">
+                                                    <img
+                                                        src={image.url}
+                                                        alt={`GCash QR Code ${index + 1}`}
+                                                        onClick={() => setSelectedImage(image.url)}
+                                                        className="w-full h-48 object-cover rounded-lg shadow-sm cursor-pointer transition-transform hover:scale-105"
+                                                    />
                                                 </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-500 text-center">No QR codes available</p>
+                                    )}
+
+                                    <div className="mt-6 space-y-4">
+                                        <h3 className="text-xl font-semibold text-[#2F424B]">GCash Accounts</h3>
+                                        {gcashAccounts.map((account, index) => (
+                                            <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                                <p className="font-medium text-[#2F424B]">{account.name}</p>
+                                                <p className="text-gray-600">Account Number: {account.accountNumber}</p>
                                             </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <p className="text-gray-500">QR Code not available.</p>
-                                )}
-                                {gcashAccounts.map((account, index) => (
-                                    <div key={index} className="mt-2">
-                                        <p className="font-bold">{account.name}</p>
-                                        <p className="font-bold">Account Number: {account.accountNumber}</p>
+                                        ))}
                                     </div>
-                                ))}
+                                </PaymentMethod>
+
+                                <PaymentMethod
+                                    title="BPI Qr Codes"
+                                    icon={<QrCode className="w-6 h-6 text-[#2F424B]" />}
+                                >
+                                    {bpiImages.length > 0 ? (
+                                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 mb-6">
+                                            {bpiImages.map((image, index) => (
+                                                <div key={index} className="relative group">
+                                                    <img
+                                                        src={image.url}
+                                                        alt={`BPI QR Code ${index + 1}`}
+                                                        onClick={() => setSelectedImage(image.url)}
+                                                        className="w-full h-48 object-cover rounded-lg shadow-sm cursor-pointer transition-transform hover:scale-105"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-500 text-center mb-6">No QR codes available</p>
+                                    )}
+
+                                    <div className="space-y-4">
+                                        <h3 className="text-xl font-semibold text-[#2F424B]">BPI Accounts</h3>
+                                        {bpiAccounts.map((account, index) => (
+                                            <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                                <p className="font-medium text-[#2F424B]">{account.name}</p>
+                                                <p className="text-gray-600">Account Number: {account.accountNumber}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </PaymentMethod>
                             </div>
-                            <div className="text-center">
-                                <span className="text-2xl text-[#2F424B] font-semibold">BPI</span>
-                                <div className="mt-4">
-                                    <p className="font-bold">{bpiAccount.name}</p>
-                                    <p className="font-bold">Account Number: {bpiAccount.accountNumber}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
+                        </>
+                    )}
+                </div>
             </main>
-        </>
+
+            {/* Image Modal */}
+            {selectedImage && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="relative max-w-3xl w-80 mx-4">
+                        <img
+                            src={selectedImage}
+                            alt="QR Code Large"
+                            className="w-full h-auto rounded-lg"
+                        />
+                        <button
+                            onClick={() => setSelectedImage(null)}
+                            className="absolute -top-4 -right-4 p-2 bg-white text-[#2F424B] rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 

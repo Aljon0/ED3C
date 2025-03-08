@@ -1,7 +1,14 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { auth } from './firebase'; // Add this import
+import { auth } from './firebase';
 import Header from './components/Header.jsx';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
+import { AuthProvider } from './components/AuthContext.jsx';
+
+
 import Home from './landingpages/Home.jsx';
 import Features from './landingpages/Features.jsx';
 import Sample from './landingpages/Sample.jsx';
@@ -24,17 +31,64 @@ import OwnerUserAccount from './ownerpages/OwnerUserAccount.jsx';
 import OwnerDesign from './ownerpages/OwnerDesign.jsx';
 import OwnerPaymentAccess from './ownerpages/OwnerPaymentAccess.jsx';
 import CustomizeDesign from './ownerpages/CustomizeDesign.jsx';
-import ElementsDesign from './ownerpages/ElementsDesign.jsx'
+import ElementsDesign from './ownerpages/ElementsDesign.jsx';
 import Reports from './ownerpages/Reports.jsx';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
-import AOS from 'aos';
-import 'aos/dist/aos.css';
+// Protected Route Component
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const [loading, setLoading] = React.useState(true);
+  const [authorized, setAuthorized] = React.useState(false);
+  const location = useLocation();
 
-import { AuthProvider } from './components/AuthContext.jsx';
+  useEffect(() => {
+    const checkAuth = async () => {
+      const unsubscribe = auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+          setAuthorized(false);
+          setLoading(false);
+          return;
+        }
 
-// Create a protected route component
+        try {
+          // Use localStorage instead of sessionStorage
+          const userRole = localStorage.getItem('userRole');
+          if (requiredRole && userRole !== requiredRole) {
+            setAuthorized(false);
+          } else {
+            setAuthorized(true);
+          }
+        } catch (error) {
+          console.error('Auth check error:', error);
+          setAuthorized(false);
+        }
+        
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    };
+
+    checkAuth();
+  }, [requiredRole]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#CACACA] to-[#A8A8A8] flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!authorized) {
+    // Clear any stored data when unauthorized
+    localStorage.removeItem('userRole');
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+};
+
+// Message Redirect Component
 const MessageRedirect = () => {
   const [loading, setLoading] = React.useState(true);
   const [userId, setUserId] = React.useState(null);
@@ -59,7 +113,7 @@ const MessageRedirect = () => {
   return <Navigate to={`/messages/${userId}`} replace />;
 };
 
-
+// App Routes Component
 function AppRoutes() {
   const location = useLocation();
   const landingPageRoutes = ['/', '/login', '/register'];
@@ -75,31 +129,167 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* User routes */}
-        <Route path="/messages" element={<MessageRedirect />} />
-        <Route path="/messages/:userId" element={<Message />} />
-        <Route path="/catalog" element={<Catalog />} />
-        <Route path="/canvas" element={<Canvas />} />
-        <Route path="/create" element={<Create />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/payment" element={<Payment />} />
-        <Route path="/UserProfile" element={<UserProfile />} />
-        <Route path="/UserElements" element={<UserElements />} />
+        {/* Protected Customer routes */}
+        <Route
+          path="/messages"
+          element={<MessageRedirect />}
+        />
+        <Route
+          path="/messages/:userId"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <Message />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/catalog"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <Catalog />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/canvas"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <Canvas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/create"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <Create />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <Orders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <Payment />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/UserProfile"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/UserElements"
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <UserElements />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Owner's routes */}
-        <Route path="/owner/dashboard" element={<Dashboard />} />
-        <Route path="/owner/messages/" element={<OwnerMessage />} />
-        <Route path="/owner/messages/:userId" element={<OwnerMessage />} />
-        <Route path="/owner/orders" element={<OwnerOrders />} />
-        <Route path="/owner/inventory" element={<OwnerInventory />} />
-        <Route path="/owner/UserAccount" element={<OwnerUserAccount />} />
-        <Route path="/owner/design" element={<OwnerDesign />} />
-        <Route path="/owner/PaymentAccess" element={<OwnerPaymentAccess />} />
-        <Route path="/owner/CustomizeDesign" element={<CustomizeDesign/>} />
-        <Route path="/owner/ElementsDesign" element={<ElementsDesign/>}/>
-        <Route path="/owner/Reports" element={<Reports/>}/>
+        {/* Protected Owner routes */}
+        <Route
+          path="/owner/dashboard"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/messages"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerMessage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/messages/:userId"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerMessage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/orders"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/inventory"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerInventory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/UserAccount"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerUserAccount />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/design"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerDesign />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/PaymentAccess"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerPaymentAccess />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/CustomizeDesign"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <CustomizeDesign />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/ElementsDesign"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <ElementsDesign />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/Reports"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Default route for the landing page */}
+        {/* Landing page route */}
         <Route
           path="/"
           element={
@@ -111,6 +301,9 @@ function AppRoutes() {
             </>
           }
         />
+
+        {/* Catch all route - redirect to login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </>
   );

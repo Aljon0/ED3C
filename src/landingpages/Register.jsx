@@ -37,12 +37,38 @@ function Register() {
     const [errors, setErrors] = useState({});
     const navigate = useNavigate();
 
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+
+        // Special handling for contact number
+        if (name === 'contact') {
+            // Remove any non-digit characters
+            const cleanedValue = value.replace(/\D/g, '');
+
+            // Handle +63 prefix
+            if (value.startsWith('+63')) {
+                if (cleanedValue.length <= 12) { // +63 + 9 digits
+                    setFormData(prev => ({
+                        ...prev,
+                        [name]: value
+                    }));
+                }
+            } else {
+                if (cleanedValue.length <= 11) { // 09 + 9 digits
+                    setFormData(prev => ({
+                        ...prev,
+                        [name]: cleanedValue
+                    }));
+                }
+            }
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        }
+
         if (errors[name]) {
             setErrors(prev => ({
                 ...prev,
@@ -80,8 +106,18 @@ function Register() {
         const contactRegex = /^(09|\+639)\d{9}$/;
         if (!contact) return 'Contact number is required';
         if (!contactRegex.test(contact)) return 'Invalid contact number format (e.g., 09XXXXXXXXX or +639XXXXXXXXX)';
+
+        // Additional length validation
+        const cleanedNumber = contact.replace(/\D/g, '');
+        if (contact.startsWith('+63')) {
+            if (cleanedNumber.length !== 12) return 'Contact number must be 12 digits when using +63 prefix';
+        } else {
+            if (cleanedNumber.length !== 11) return 'Contact number must be 11 digits when using 09 prefix';
+        }
+
         return '';
     };
+
 
     const validateAddress = (address) => {
         if (!address) return 'Address is required';
@@ -91,7 +127,7 @@ function Register() {
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        setEmailExists(false); // Reset email exists error
+        setEmailExists(false);
 
         const newErrors = {
             email: validateEmail(formData.email),
@@ -114,7 +150,6 @@ function Register() {
         }
 
         try {
-            // Check if email exists before attempting to create account
             const emailTaken = await checkEmailExists(formData.email);
             if (emailTaken) {
                 setEmailExists(true);
@@ -151,30 +186,30 @@ function Register() {
 
     return (
         <section className="min-h-screen bg-gradient-to-b from-[#CACACA] to-[#A8A8A8] py-8 px-4">
-            <div className="max-w-md mx-auto bg-[#2F424B] rounded-lg shadow-2xl mt-24">
-                <div className="p-5">
-                    <h2 className="text-2xl font-bold text-center text-[#EDF5FC] mb-1">Create Account</h2>
+            <div className="max-w-xs sm:max-w-sm md:max-w-md mx-auto bg-[#2F424B] rounded-lg shadow-2xl mt-24 sm:mt-16 md:mt-24">
+                <div className="p-4 sm:p-5">
+                    <h2 className="text-xl sm:text-2xl font-bold text-center text-[#EDF5FC] mb-1">Create Account</h2>
                     <div className="text-center text-[#EDF5FC]/80 space-y-0.5 mb-4">
-                        <p className="text-sm">As</p>
-                        <p className="text-lg font-semibold">Customer</p>
+                        <p className="text-xs sm:text-sm">As</p>
+                        <p className="text-base sm:text-lg font-semibold">Customer</p>
                     </div>
 
                     {emailExists && (
-                                notifyError('This email is already registered. Please use a different email or login to your existing account.')
+                        notifyError('This email is already registered. Please use a different email or login to your existing account.')
                     )}
 
                     {errors.submit && (
-                       notifyError('errors.submit')
+                        notifyError('errors.submit')
                     )}
 
                     <form className="space-y-3" onSubmit={handleRegister}>
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Email</label>
+                            <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-[#EDF5FC]/90 mb-1">Email</label>
                             <input
                                 type="email"
                                 id="email"
                                 name="email"
-                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.email ? 'border-red-500' : ''}`}
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all text-xs sm:text-sm ${errors.email ? 'border-red-500' : ''}`}
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -182,13 +217,13 @@ function Register() {
                         </div>
 
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Password</label>
+                            <label htmlFor="password" className="block text-xs sm:text-sm font-medium text-[#EDF5FC]/90 mb-1">Password</label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     id="password"
                                     name="password"
-                                    className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                                    className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all pr-10 text-xs sm:text-sm ${errors.password ? 'border-red-500' : ''}`}
                                     value={formData.password}
                                     onChange={handleChange}
                                 />
@@ -204,13 +239,13 @@ function Register() {
                         </div>
 
                         <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Confirm Password</label>
+                            <label htmlFor="confirmPassword" className="block text-xs sm:text-sm font-medium text-[#EDF5FC]/90 mb-1">Confirm Password</label>
                             <div className="relative">
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
                                     id="confirmPassword"
                                     name="confirmPassword"
-                                    className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                                    className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all pr-10 text-xs sm:text-sm ${errors.confirmPassword ? 'border-red-500' : ''}`}
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
                                 />
@@ -226,12 +261,12 @@ function Register() {
                         </div>
 
                         <div>
-                            <label htmlFor="firstName" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">First Name</label>
+                            <label htmlFor="firstName" className="block text-xs sm:text-sm font-medium text-[#EDF5FC]/90 mb-1">First Name</label>
                             <input
                                 type="text"
                                 id="firstName"
                                 name="firstName"
-                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.firstName ? 'border-red-500' : ''}`}
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all text-xs sm:text-sm ${errors.firstName ? 'border-red-500' : ''}`}
                                 value={formData.firstName}
                                 onChange={handleChange}
                             />
@@ -239,12 +274,12 @@ function Register() {
                         </div>
 
                         <div>
-                            <label htmlFor="surname" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Surname</label>
+                            <label htmlFor="surname" className="block text-xs sm:text-sm font-medium text-[#EDF5FC]/90 mb-1">Surname</label>
                             <input
                                 type="text"
                                 id="surname"
                                 name="surname"
-                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.surname ? 'border-red-500' : ''}`}
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all text-xs sm:text-sm ${errors.surname ? 'border-red-500' : ''}`}
                                 value={formData.surname}
                                 onChange={handleChange}
                             />
@@ -252,26 +287,30 @@ function Register() {
                         </div>
 
                         <div>
-                            <label htmlFor="contact" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Contact #</label>
+                            <label htmlFor="contact" className="block text-xs sm:text-sm font-medium text-[#EDF5FC]/90 mb-1">Contact #</label>
                             <input
-                                type="text"
+                                type="tel"
                                 id="contact"
                                 name="contact"
-                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.contact ? 'border-red-500' : ''}`}
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all text-xs sm:text-sm ${errors.contact ? 'border-red-500' : ''}`}
                                 value={formData.contact}
                                 onChange={handleChange}
                                 placeholder="09XXXXXXXXX or +639XXXXXXXXX"
+                                maxLength={13} // Allow for +63 format
                             />
                             {errors.contact && <p className="text-red-400 text-xs mt-1">{errors.contact}</p>}
+                            <p className="text-[#EDF5FC]/60 text-xs mt-1">
+                                Format: 09XXXXXXXXX (11 digits) or +639XXXXXXXXX (13 digits)
+                            </p>
                         </div>
 
                         <div>
-                            <label htmlFor="address" className="block text-sm font-medium text-[#EDF5FC]/90 mb-1">Address</label>
+                            <label htmlFor="address" className="block text-xs sm:text-sm font-medium text-[#EDF5FC]/90 mb-1">Address</label>
                             <input
                                 type="text"
                                 id="address"
                                 name="address"
-                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all ${errors.address ? 'border-red-500' : ''}`}
+                                className={`w-full px-3 py-1.5 bg-[#EDF5FC]/10 border border-[#EDF5FC]/20 text-white rounded-md focus:outline-none focus:ring-1 focus:ring-[#4FBDBA] transition-all text-xs sm:text-sm ${errors.address ? 'border-red-500' : ''}`}
                                 value={formData.address}
                                 onChange={handleChange}
                             />
@@ -279,13 +318,13 @@ function Register() {
                         </div>
 
                         <div className="pt-2 pb-1 space-y-3">
-                            <button 
-                                type="submit" 
-                                className="w-full px-4 py-2 bg-[#4FBDBA] text-white rounded-md hover:bg-[#4FBDBA]/90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4FBDBA] focus:ring-offset-1 focus:ring-offset-[#2F424B]"
+                            <button
+                                type="submit"
+                                className="w-full px-4 py-2 bg-[#4FBDBA] text-white rounded-md hover:bg-[#4FBDBA]/90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4FBDBA] focus:ring-offset-1 focus:ring-offset-[#2F424B] text-sm sm:text-base"
                             >
                                 Sign Up
                             </button>
-                            <p className="text-[#EDF5FC]/80 text-sm text-center">
+                            <p className="text-[#EDF5FC]/80 text-xs sm:text-sm text-center">
                                 Already have an account?{' '}
                                 <Link to="/login" className="text-[#4FBDBA] hover:text-[#4FBDBA]/80 transition-colors">
                                     Login

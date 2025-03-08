@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Text, Html } from "@react-three/drei";
-
+import { Html, Text } from "@react-three/drei";
+import React, { useEffect, useRef, useState } from "react";
 
 const Text2DComponent = ({
   text,
   font,
   color,
   height = 0.2,
+  width = 2, // Add width prop with default
   position,
   onPositionChange,
   moveEnabled,
@@ -17,17 +17,27 @@ const Text2DComponent = ({
   isSelected,
   onSelect,
   onUpdateHeight,
+  onUpdateWidth, // Add width update handler
 }) => {
   const textRef = useRef();
-  const textareaRef = useRef();
+  const textEditRef = useRef();
   const [isEditing, setIsEditing] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(position);
-  const [currentText, setCurrentText] = useState(text);
+  const [editingText, setEditingText] = useState(text);
   const [isMoving, setIsMoving] = useState(false);
   const [dragStartPosition, setDragStartPosition] = useState(null);
   const [isResizing, setIsResizing] = useState(false);
-  const [initialPointerY, setInitialPointerY] = useState(null);
-  const [initialHeight, setInitialHeight] = useState(height);
+  const [resizeDirection, setResizeDirection] = useState(null);
+  const [initialPointerPosition, setInitialPointerPosition] = useState({
+    x: null,
+    y: null,
+  });
+  const [initialDimensions, setInitialDimensions] = useState({ width, height });
+
+  // Update editingText when text prop changes
+  useEffect(() => {
+    setEditingText(text);
+  }, [text]);
 
   const validColors = {
     gold: "#FFD700",
@@ -59,25 +69,48 @@ const Text2DComponent = ({
     }
   }, [stoneDimensions.thickness, objectType]);
 
+  // Handle clicking outside of text edit
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (isEditing && textareaRef.current && !textareaRef.current.contains(event.target)) {
+      if (
+        isEditing &&
+        textEditRef.current &&
+        !textEditRef.current.contains(event.target)
+      ) {
         setIsEditing(false);
+        if (onTextChange && editingText !== text) {
+          onTextChange(editingText);
+        }
       }
     };
 
     if (isEditing) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isEditing]);
+  }, [isEditing, editingText, onTextChange, text]);
+
+  // Add escape key handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && isEditing) {
+        setIsEditing(false);
+        if (onTextChange && editingText !== text) {
+          onTextChange(editingText);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEditing, editingText, onTextChange, text]);
 
   const handlePointerDown = (event) => {
     if (!moveEnabled || isEditing) return;
-    
+
     event.stopPropagation();
     setIsMoving(true);
     setDragStartPosition(event.point);
@@ -105,31 +138,32 @@ const Text2DComponent = ({
     setDragStartPosition(null);
   };
 
-  const handleTextClick = (event) => {
+  const handleClick = (event) => {
     event.stopPropagation();
-    if (!isEditing) {
+    if (!isMoving && !isEditing) {
       onSelect?.(!isSelected);
     }
   };
 
-  const handleTextDoubleClick = (event) => {
+  const handleDoubleClick = (event) => {
     event.stopPropagation();
-    setIsEditing(true);
-    onSelect?.(true);
-  };
-
-  const handleTextChange = (e) => {
-    const newText = e.target.value;
-    setCurrentText(newText);
-    if (onTextChange) {
-      onTextChange(newText);
+    if (!isEditing) {
+      setIsEditing(true);
+      onSelect?.(true);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape' || (e.key === 'Enter' && e.shiftKey)) {
-      setIsEditing(false);
+  const handleTextChange = (e) => {
+    setEditingText(e.target.value);
+  };
+
+  const handleTextSubmit = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      setIsEditing(false);
+      if (onTextChange && editingText !== text) {
+        onTextChange(editingText);
+      }
     }
   };
 
@@ -140,79 +174,175 @@ const Text2DComponent = ({
     }
   };
 
-  const handleResizeStart = (event) => {
+  const handleResizeStart = (event, direction) => {
     event.stopPropagation();
     setIsResizing(true);
-    setInitialPointerY(event.clientY);
-    setInitialHeight(height);
-    
-    // Add window event listeners for resize
-    window.addEventListener('mousemove', handleResizeMove);
-    window.addEventListener('mouseup', handleResizeEnd);
+    setResizeDirection(direction);
+    setInitialPointerPosition({ x: event.clientX, y: event.clientY });
+    setInitialDimensions({ width, height });
+
+    window.addEventListener("mousemove", handleResizeMove);
+    window.addEventListener("mouseup", handleResizeEnd);
   };
 
   const handleResizeMove = (event) => {
-    if (!isResizing || initialPointerY === null) return;
+    if (!isResizing || !initialPointerPosition.x || !initialPointerPosition.y)
+      return;
 
-    const deltaY = (event.clientY - initialPointerY) * -0.002; // Adjust sensitivity as needed
-    const newHeight = Math.max(0.1, initialHeight + deltaY); // Minimum size of 0.1
-    
-    if (onUpdateHeight) {
-      onUpdateHeight(newHeight);
+    const deltaX = (event.clientX - initialPointerPosition.x) * 0.002;
+    const deltaY = (event.clientY - initialPointerPosition.y) * -0.002;
+
+    let newWidth = initialDimensions.width;
+    let newHeight = initialDimensions.height;
+
+    switch (resizeDirection) {
+      case "top":
+        newHeight = Math.max(0.1, initialDimensions.height + deltaY);
+        break;
+      case "bottom":
+        newHeight = Math.max(0.1, initialDimensions.height - deltaY);
+        break;
+      case "left":
+        newWidth = Math.max(0.5, initialDimensions.width - deltaX);
+        break;
+      case "right":
+        newWidth = Math.max(0.5, initialDimensions.width + deltaX);
+        break;
+      case "topLeft":
+        newWidth = Math.max(0.5, initialDimensions.width - deltaX);
+        newHeight = Math.max(0.1, initialDimensions.height + deltaY);
+        break;
+      case "topRight":
+        newWidth = Math.max(0.5, initialDimensions.width + deltaX);
+        newHeight = Math.max(0.1, initialDimensions.height + deltaY);
+        break;
+      case "bottomLeft":
+        newWidth = Math.max(0.5, initialDimensions.width - deltaX);
+        newHeight = Math.max(0.1, initialDimensions.height - deltaY);
+        break;
+      case "bottomRight":
+        newWidth = Math.max(0.5, initialDimensions.width + deltaX);
+        newHeight = Math.max(0.1, initialDimensions.height - deltaY);
+        break;
     }
+
+    if (onUpdateHeight) onUpdateHeight(newHeight);
+    if (onUpdateWidth) onUpdateWidth(newWidth);
   };
 
   const handleResizeEnd = () => {
     setIsResizing(false);
-    setInitialPointerY(null);
-    
-    // Remove window event listeners
-    window.removeEventListener('mousemove', handleResizeMove);
-    window.removeEventListener('mouseup', handleResizeEnd);
+    setResizeDirection(null);
+    setInitialPointerPosition({ x: null, y: null });
+
+    window.removeEventListener("mousemove", handleResizeMove);
+    window.removeEventListener("mouseup", handleResizeEnd);
   };
 
+  const ResizeHandle = ({ position, direction, icon, rotation = 0 }) => (
+    <Html position={position}>
+      <div
+        className="w-6 h-6 flex items-center justify-center cursor-pointer bg-[#2F424B] rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2"
+        style={{ cursor: getCursor(direction) }}
+        onPointerDown={(e) => handleResizeStart(e, direction)}
+      >
+        <img
+          src={icon}
+          alt="resize"
+          className="w-4 h-4"
+          style={{ transform: `rotate(${rotation}deg)` }}
+        />
+      </div>
+    </Html>
+  );
 
-  
+  const getCursor = (direction) => {
+    const cursors = {
+      top: "ns-resize",
+      bottom: "ns-resize",
+      left: "ew-resize",
+      right: "ew-resize",
+      topLeft: "nw-resize",
+      topRight: "ne-resize",
+      bottomLeft: "sw-resize",
+      bottomRight: "se-resize",
+    };
+    return cursors[direction] || "pointer";
+  };
+
   return (
     <group position={currentPosition}>
       <Text
         ref={textRef}
         font={`/fonts/${font}.ttf`}
         fontSize={height}
-        maxWidth={2}
+        maxWidth={width}
         lineHeight={1}
         letterSpacing={0.02}
         textAlign="center"
         color={validColors[color] || validColors.white}
         anchorX="center"
         anchorY="middle"
-        onClick={handleTextClick}
-        onDoubleClick={handleTextDoubleClick}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        {currentText}
+        {editingText}
       </Text>
 
       {isSelected && !isEditing && (
         <>
-          {/* Resize Handle */}
-          <Html position={[-1, height / 2, 0]}>
-            <div 
-              className="w-6 h-6 flex items-center justify-center cursor-ns-resize bg-[#2F424B] rounded-full shadow-lg transform -translate-y-1/2"
-              onPointerDown={handleResizeStart}
-            >
-              <img 
-                src="/assets/cil--resize-both.svg" 
-                alt="resize"
-                className="w-4 h-4"
-              />
-            </div>
-          </Html>
+          {/* Corner handles */}
+          <ResizeHandle
+            position={[-width / 2, height / 2, 0]}
+            direction="topLeft"
+            icon="/assets/line-md--arrows-long-diagonal.svg"
+            rotation={90}
+          />
+          <ResizeHandle
+            position={[width / 2, height / 2, 0]}
+            direction="topRight"
+            icon="/assets/line-md--arrows-long-diagonal.svg"
+            rotation={180}
+          />
+          <ResizeHandle
+            position={[-width / 2, -height / 2, 0]}
+            direction="bottomLeft"
+            icon="/assets/line-md--arrows-long-diagonal.svg"
+            rotation={180}
+          />
+          <ResizeHandle
+            position={[width / 2, -height / 2, 0]}
+            direction="bottomRight"
+            icon="/assets/line-md--arrows-long-diagonal-rotated.svg"
+          />
 
-          {/* Remove Button */}
-          <group position={[1, height, 0.02]}>
+          {/* Edge handles */}
+          <ResizeHandle
+            position={[0, height / 2, 0]}
+            direction="top"
+            icon="/assets/fontisto--arrow-v.svg"
+          />
+          <ResizeHandle
+            position={[0, -height / 2, 0]}
+            direction="bottom"
+            icon="/assets/fontisto--arrow-v.svg"
+          />
+          <ResizeHandle
+            position={[-width / 2, 0, 0]}
+            direction="left"
+            icon="/assets/fontisto--arrow-h.svg"
+          />
+          <ResizeHandle
+            position={[width / 2, 0, 0]}
+            direction="right"
+            icon="/assets/fontisto--arrow-h.svg"
+          />
+
+          {/* Remove button */}
+          <group position={[width / 2 + 0.2, height / 2, 0.02]}>
             <mesh onClick={handleRemoveClick}>
               <planeGeometry args={[0.2, 0.2]} />
               <meshBasicMaterial color="red" />
@@ -230,50 +360,67 @@ const Text2DComponent = ({
         </>
       )}
 
-      {/* ... (keep existing editing textarea HTML) */}
       {isEditing && (
         <Html
-          occlude
-          transform
           position={[0, 0, 0.1]}
           distanceFactor={5}
-          wrapperClass="text-edit-wrapper"
+          transform
+          occlude={false}
+          center // Added center prop
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none", // This ensures the HTML container doesn't interfere with interactions
+          }}
         >
-          <textarea
-            ref={textareaRef}
-            value={currentText}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
-            style={{
-              position: 'absolute',
-              transform: 'translate(-50%, -50%)',
-              width: '200px',
-              minHeight: '50px',
-              zIndex: 1000,
-              backgroundColor: 'white',
-              border: '2px solid transparent',
-              borderRadius: '4px',
-              padding: '10px',
-              resize: 'vertical',
-              outline: 'none',
-              color: '#000',
-            }}
-            autoFocus
-          />
           <div
             style={{
-              position: 'absolute',
-              bottom: '-20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              color: 'white',
-              fontSize: '12px',
-              whiteSpace: 'nowrap',
-              textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
-              pointerEvents: 'none'
+              position: "relative",
+              width: "200px",
+              height: "100%",
+              pointerEvents: "auto", // Re-enable pointer events for the inner content
+              transform: "translate(-50%, -50%)", // Center the container
             }}
           >
-            Press Esc or Shift + Enter to save
+            <textarea
+              ref={textEditRef}
+              value={editingText}
+              onChange={handleTextChange}
+              onKeyDown={handleTextSubmit}
+              style={{
+                width: "100%",
+                minHeight: "50px",
+                backgroundColor: "white",
+                border: "2px solid #2F424B",
+                borderRadius: "4px",
+                padding: "10px",
+                resize: "vertical",
+                outline: "none",
+                color: "#000",
+                zIndex: 1000,
+              }}
+              autoFocus
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                color: "white",
+                fontSize: "12px",
+                whiteSpace: "nowrap",
+                textShadow: "1px 1px 1px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+                marginTop: "30px",
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                padding: "4px 8px",
+                borderRadius: "4px",
+              }}
+            >
+              Press Enter to save, Shift+Enter for new line
+            </div>
           </div>
         </Html>
       )}

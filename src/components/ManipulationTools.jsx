@@ -24,7 +24,7 @@ function ManipulationTools({
 
   return (
     <div>
-      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 flex flex-col gap-2 bg-[#2F424B] p-2 rounded-lg">
+      <div className="absolute top-72 right-3 transform -translate-y-1/2 flex flex-col gap-2 bg-[#2F424B] p-2 rounded-lg">
         <Tooltip text="Add Text">
           <button
             className="w-8 h-8 cursor-pointer hover:opacity-80"

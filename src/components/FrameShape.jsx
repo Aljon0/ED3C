@@ -20,9 +20,6 @@ const FrameShape = ({
   onPointerMove,
   onPointerUp,
   removeEnabled = false,
-  onResizeStart,
-  onResize,
-  onResizeEnd,
   frameId,
 }) => {
   const [hovered, setHovered] = useState(false);
@@ -84,72 +81,6 @@ const FrameShape = ({
         squareHole.lineTo(innerSide / 2, -innerSide / 2);
         squareHole.lineTo(-innerSide / 2, -innerSide / 2);
         shapePath.holes.push(squareHole);
-        break;
-
-      case "oval":
-        const ovalWidth = size[0];
-        const ovalHeight = size[1];
-
-        // Draw outer oval
-        const rx = ovalWidth / 2;
-        const ry = ovalHeight / 2;
-        const controlPoint = 0.5522847498 * rx;
-        const controlPointY = 0.5522847498 * ry;
-
-        shapePath.moveTo(-rx, 0);
-        shapePath.bezierCurveTo(-rx, controlPointY, -controlPoint, ry, 0, ry);
-        shapePath.bezierCurveTo(controlPoint, ry, rx, controlPointY, rx, 0);
-        shapePath.bezierCurveTo(rx, -controlPointY, controlPoint, -ry, 0, -ry);
-        shapePath.bezierCurveTo(
-          -controlPoint,
-          -ry,
-          -rx,
-          -controlPointY,
-          -rx,
-          0
-        );
-
-        // Draw inner oval (hole)
-        const innerRx = rx - frameWidth;
-        const innerRy = ry - frameWidth;
-        const innerControlPoint = 0.5522847498 * innerRx;
-        const innerControlPointY = 0.5522847498 * innerRy;
-
-        const ovalHole = new Path();
-        ovalHole.moveTo(-innerRx, 0);
-        ovalHole.bezierCurveTo(
-          -innerRx,
-          innerControlPointY,
-          -innerControlPoint,
-          innerRy,
-          0,
-          innerRy
-        );
-        ovalHole.bezierCurveTo(
-          innerControlPoint,
-          innerRy,
-          innerRx,
-          innerControlPointY,
-          innerRx,
-          0
-        );
-        ovalHole.bezierCurveTo(
-          innerRx,
-          -innerControlPointY,
-          innerControlPoint,
-          -innerRy,
-          0,
-          -innerRy
-        );
-        ovalHole.bezierCurveTo(
-          -innerControlPoint,
-          -innerRy,
-          -innerRx,
-          -innerControlPointY,
-          -innerRx,
-          0
-        );
-        shapePath.holes.push(ovalHole);
         break;
 
       default:
@@ -236,53 +167,6 @@ const FrameShape = ({
     bevelSegments: 3,
   };
 
-  // Handle resize UI elements
-  const getCursor = (direction) => {
-    const cursors = {
-      top: "ns-resize",
-      bottom: "ns-resize",
-      left: "ew-resize",
-      right: "ew-resize",
-      topLeft: "nw-resize",
-      topRight: "ne-resize",
-      bottomLeft: "sw-resize",
-      bottomRight: "ne-resize",
-    };
-    return cursors[direction] || "pointer";
-  };
-
-  const ResizeHandle = ({ position, direction, icon, rotation = 0 }) => (
-    <Html position={position}>
-      <div
-        className="w-6 h-6 flex items-center justify-center cursor-pointer bg-[#2F424B] rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2"
-        style={{ cursor: getCursor(direction) }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          if (onResizeStart) onResizeStart(e, direction, frameId);
-        }}
-        onPointerMove={(e) => {
-          e.stopPropagation();
-          if (onResize) onResize(e, direction, frameId);
-        }}
-        onPointerUp={(e) => {
-          e.stopPropagation();
-          if (onResizeEnd) onResizeEnd(e, direction, frameId);
-        }}
-      >
-        {icon ? (
-          <img
-            src={icon}
-            alt="resize"
-            className="w-4 h-4"
-            style={{ transform: `rotate(${rotation}deg)` }}
-          />
-        ) : (
-          <span className="text-white font-bold text-lg">⌕</span>
-        )}
-      </div>
-    </Html>
-  );
-
   if (!shapeType) return null;
 
   return (
@@ -324,74 +208,21 @@ const FrameShape = ({
         />
       </mesh>
 
-      {/* Resize handles and remove button */}
-      {isSelected && (
-        <>
-          {/* Corner resize handles */}
-          <ResizeHandle
-            position={[-size[0] / 2, size[1] / 2, 0]}
-            direction="topLeft"
-            icon="/assets/line-md--arrows-long-diagonal.svg"
-            rotation={90}
-          />
-          <ResizeHandle
-            position={[size[0] / 2, size[1] / 2, 0]}
-            direction="topRight"
-            icon="/assets/line-md--arrows-long-diagonal.svg"
-            rotation={180}
-          />
-          <ResizeHandle
-            position={[-size[0] / 2, -size[1] / 2, 0]}
-            direction="bottomLeft"
-            icon="/assets/line-md--arrows-long-diagonal.svg"
-            rotation={0}
-          />
-          <ResizeHandle
-            position={[size[0] / 2, -size[1] / 2, 0]}
-            direction="bottomRight"
-            icon="/assets/line-md--arrows-long-diagonal-rotated.svg"
-            rotation={0}
-          />
-
-          {/* Edge resize handles */}
-          <ResizeHandle
-            position={[0, size[1] / 2, 0]}
-            direction="top"
-            icon="/assets/fontisto--arrow-v.svg"
-          />
-          <ResizeHandle
-            position={[0, -size[1] / 2, 0]}
-            direction="bottom"
-            icon="/assets/fontisto--arrow-v.svg"
-          />
-          <ResizeHandle
-            position={[-size[0] / 2, 0, 0]}
-            direction="left"
-            icon="/assets/fontisto--arrow-h.svg"
-          />
-          <ResizeHandle
-            position={[size[0] / 2, 0, 0]}
-            direction="right"
-            icon="/assets/fontisto--arrow-h.svg"
-          />
-
-          {/* Remove button */}
-          {removeEnabled && (
-            <Html position={[size[0] / 2 + 0.1, size[1] / 2 + 0.1, 0]}>
-              <div
-                className="w-6 h-6 flex items-center justify-center cursor-pointer bg-red-500 rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (removeEnabled && onClick) {
-                    onClick(e, "remove");
-                  }
-                }}
-              >
-                <span className="text-white font-bold text-lg">×</span>
-              </div>
-            </Html>
-          )}
-        </>
+      {/* Remove button (keeping just this part of the selection UI) */}
+      {isSelected && removeEnabled && (
+        <Html position={[size[0] / 2 + 0.1, size[1] / 2 + 0.1, 0]}>
+          <div
+            className="w-6 h-6 flex items-center justify-center cursor-pointer bg-red-500 rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (removeEnabled && onClick) {
+                onClick(e, "remove");
+              }
+            }}
+          >
+            <span className="text-white font-bold text-lg">×</span>
+          </div>
+        </Html>
       )}
     </group>
   );

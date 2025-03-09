@@ -9,7 +9,6 @@ function Frame({ onSelectShape, selectedShape, frames, onClearFrames }) {
       icon: "/assets/mingcute--square-fill.svg",
       label: "Square",
     },
-    { id: "oval", icon: "/assets/tabler--oval-filled.svg", label: "Oval" },
   ];
 
   const handleShapeSelect = (shapeId) => {
